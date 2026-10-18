@@ -33,6 +33,9 @@ public class ChunkFinderConfig {
     public int renderY = 64;
     public double boxHeight = 1.0;
 
+    /** Freecam flying speed, 1..20 (5 is about 10 blocks per second). */
+    public int freecamSpeed = 5;
+
     // ARGB-free simple RGB colors (0..255)
     public int[] activityColor = {255, 80, 80};
     public int[] geodeColor = {170, 90, 255};
@@ -68,5 +71,6 @@ public class ChunkFinderConfig {
         scanInterval = Math.max(5, Math.min(200, scanInterval));
         renderY = Math.max(-64, Math.min(320, renderY));
         boxHeight = Math.max(0.1, Math.min(16, boxHeight));
+        freecamSpeed = Math.max(1, Math.min(20, freecamSpeed));
     }
 }

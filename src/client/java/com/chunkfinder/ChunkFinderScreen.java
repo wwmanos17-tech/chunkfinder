@@ -23,7 +23,7 @@ public class ChunkFinderScreen extends Screen {
     protected void init() {
         ChunkFinderConfig cfg = ChunkFinderConfig.INSTANCE;
         int x = this.width / 2 - WIDTH / 2;
-        int y = this.height / 2 - 4 * GAP;
+        int y = this.height / 2 - 5 * GAP;
 
         addDrawableChild(ButtonWidget.builder(enabledText(), b -> {
             cfg.enabled = !cfg.enabled;
@@ -52,6 +52,9 @@ public class ChunkFinderScreen extends Screen {
         y += GAP;
 
         addDrawableChild(new IntSlider(x, y, "Render Height (Y)", -64, 320, cfg.renderY, v -> cfg.renderY = v));
+        y += GAP;
+
+        addDrawableChild(new IntSlider(x, y, "Freecam Speed", 1, 20, cfg.freecamSpeed, v -> cfg.freecamSpeed = v));
         y += GAP * 2;
 
         addDrawableChild(ButtonWidget.builder(Text.literal("Done"), b -> close())

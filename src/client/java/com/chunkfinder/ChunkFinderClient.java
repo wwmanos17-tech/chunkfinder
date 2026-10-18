@@ -16,6 +16,7 @@ public class ChunkFinderClient implements ClientModInitializer {
 
     private static KeyBinding toggleKey;
     private static KeyBinding settingsKey;
+    private static KeyBinding freecamKey;
 
     @Override
     public void onInitializeClient() {
@@ -26,7 +27,16 @@ public class ChunkFinderClient implements ClientModInitializer {
         settingsKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
             "key.chunkfinder.settings", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_K, "key.categories.chunkfinder"));
 
+        freecamKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
+            "key.chunkfinder.freecam", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_F4, "key.categories.chunkfinder"));
+
+        // Freecam reads the keyboard and releases the real movement keys before the player's own tick.
+        ClientTickEvents.START_CLIENT_TICK.register(Freecam::tick);
+
         ClientTickEvents.END_CLIENT_TICK.register(mc -> {
+            while (freecamKey.wasPressed()) {
+                Freecam.toggle(mc);
+            }
             while (toggleKey.wasPressed()) {
                 ChunkFinderConfig cfg = ChunkFinderConfig.INSTANCE;
                 cfg.enabled = !cfg.enabled;

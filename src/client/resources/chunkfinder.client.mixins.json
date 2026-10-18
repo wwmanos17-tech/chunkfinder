@@ -1,0 +1,12 @@
+{
+  "required": false,
+  "package": "com.chunkfinder.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "client": [
+    "CameraMixin",
+    "MouseMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 0
+  }
+}
