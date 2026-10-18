@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "id": "chunkfinder",
+  "version": "${version}",
+  "name": "Chunk Finder",
+  "description": "Scans nearby chunks for amethyst geodes and structures that may signify player activity. Adjustable sensitivity and simulation distance.",
+  "authors": ["wwmanos17"],
+  "license": "MIT",
+  "environment": "client",
+  "entrypoints": {
+    "client": ["com.chunkfinder.ChunkFinderClient"]
+  },
+  "depends": {
+    "fabricloader": ">=0.16.0",
+    "minecraft": "~1.21.4",
+    "java": ">=21",
+    "fabric-api": "*"
+  }
+}
