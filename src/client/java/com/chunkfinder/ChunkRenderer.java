@@ -3,7 +3,7 @@ package com.chunkfinder;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
 import net.minecraft.client.render.RenderLayer;
 import net.minecraft.client.render.VertexConsumer;
-import net.minecraft.client.render.WorldRenderer;
+import net.minecraft.client.render.VertexRendering;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.util.math.ChunkPos;
 import net.minecraft.util.math.Vec3d;
@@ -39,13 +39,13 @@ public class ChunkRenderer {
             ChunkScanner.Result r = entry.getValue();
             int[] c = (r == ChunkScanner.Result.GEODE) ? cfg.geodeColor : cfg.activityColor;
 
-            WorldRenderer.drawBox(matrices, lines, x1, y1, z1, x2, y2, z2,
+            VertexRendering.drawBox(matrices, lines, x1, y1, z1, x2, y2, z2,
                 c[0] / 255f, c[1] / 255f, c[2] / 255f, 1f);
 
             // Chunks with both signals get an extra inner outline in the geode color.
             if (r == ChunkScanner.Result.BOTH) {
                 int[] g = cfg.geodeColor;
-                WorldRenderer.drawBox(matrices, lines, x1 + 0.25, y1, z1 + 0.25, x2 - 0.25, y2, z2 - 0.25,
+                VertexRendering.drawBox(matrices, lines, x1 + 0.25, y1, z1 + 0.25, x2 - 0.25, y2, z2 - 0.25,
                     g[0] / 255f, g[1] / 255f, g[2] / 255f, 1f);
             }
         }
