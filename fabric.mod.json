@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "id": "chunkfinder",
+  "version": "${version}",
+  "name": "Pharaoh",
+  "description": "Pharaoh: Chunk Finder (geodes, player activity, sus chunks), Freecam, Player ESP, Chest ESP, Ore ESP and Spectator Alert. Logo icon: Pharaoh by Delapouite, game-icons.net, CC BY 3.0.",
+  "authors": [
+    "wwmanos17",
+    { "name": "Delapouite (logo icon, game-icons.net, CC BY 3.0)" }
+  ],
+  "license": "MIT",
+  "environment": "client",
+  "entrypoints": {
+    "client": ["com.chunkfinder.ChunkFinderClient"]
+  },
+  "mixins": [
+    {
+      "config": "chunkfinder.client.mixins.json",
+      "environment": "client"
+    }
+  ],
+  "depends": {
+    "fabricloader": ">=0.16.0",
+    "minecraft": "~1.21.4",
+    "java": ">=21",
+    "fabric-api": "*"
+  }
+}
