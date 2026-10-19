@@ -2,9 +2,12 @@
   "schemaVersion": 1,
   "id": "chunkfinder",
   "version": "${version}",
-  "name": "Chunk Finder",
-  "description": "Scans nearby chunks for amethyst geodes and structures that may signify player activity. Adjustable sensitivity and simulation distance.",
-  "authors": ["wwmanos17"],
+  "name": "Pharaoh",
+  "description": "Pharaoh: Chunk Finder (geodes, player activity, sus chunks), Freecam, Player ESP, Chest ESP, Ore ESP and Spectator Alert. Logo icon: Pharaoh by Delapouite, game-icons.net, CC BY 3.0.",
+  "authors": [
+    "wwmanos17",
+    { "name": "Delapouite (logo icon, game-icons.net, CC BY 3.0)" }
+  ],
   "license": "MIT",
   "environment": "client",
   "entrypoints": {

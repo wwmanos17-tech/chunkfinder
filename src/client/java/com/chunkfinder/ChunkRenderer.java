@@ -1,54 +1,55 @@
 package com.chunkfinder;
 
-import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
-import net.minecraft.client.render.RenderLayer;
-import net.minecraft.client.render.VertexConsumer;
-import net.minecraft.client.render.VertexRendering;
-import net.minecraft.client.util.math.MatrixStack;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.world.ClientWorld;
 import net.minecraft.util.math.ChunkPos;
 import net.minecraft.util.math.Vec3d;
 
+import java.util.List;
 import java.util.Map;
 
-/**
- * Draws one outlined box per flagged chunk. Every box is snapped to the 16x16 chunk grid
- * and sits at the same configured height, so all highlights line up on one plane.
- */
+/** Collects the chunk boxes for Chunk Finder (geodes, player activity and sus chunks). */
 public class ChunkRenderer {
-    public static void render(WorldRenderContext context) {
+    public static void collect(List<EspRenderer.Box> boxes, Vec3d cam) {
         ChunkFinderConfig cfg = ChunkFinderConfig.INSTANCE;
-        if (!cfg.enabled || ChunkScanner.FOUND.isEmpty()) return;
-        if (context.consumers() == null) return;
+        if (!cfg.enabled) return;
+        ClientWorld world = MinecraftClient.getInstance().world;
+        if (world == null) return;
 
-        MatrixStack matrices = context.matrixStack();
-        if (matrices == null) return;
-        Vec3d cam = context.camera().getPos();
-        VertexConsumer lines = context.consumers().getBuffer(RenderLayer.getLines());
+        double yb;
+        double yt;
+        float fill;
+        if (cfg.tallColumns) {
+            yb = world.getBottomY();
+            yt = yb + world.getHeight();
+            fill = 0.05f;
+        } else {
+            yb = cfg.renderY;
+            yt = yb + cfg.boxHeight;
+            fill = 0.18f;
+        }
 
-        double y1 = cfg.renderY - cam.y;
-        double y2 = y1 + cfg.boxHeight;
-
-        matrices.push();
         for (Map.Entry<ChunkPos, ChunkScanner.Result> entry : ChunkScanner.FOUND.entrySet()) {
             ChunkPos pos = entry.getKey();
-            double x1 = pos.getStartX() - cam.x;
-            double z1 = pos.getStartZ() - cam.z;
-            double x2 = x1 + 16;
-            double z2 = z1 + 16;
-
+            double x1 = pos.getStartX();
+            double z1 = pos.getStartZ();
             ChunkScanner.Result r = entry.getValue();
             int[] c = (r == ChunkScanner.Result.GEODE) ? cfg.geodeColor : cfg.activityColor;
-
-            VertexRendering.drawBox(matrices, lines, x1, y1, z1, x2, y2, z2,
-                c[0] / 255f, c[1] / 255f, c[2] / 255f, 1f);
-
-            // Chunks with both signals get an extra inner outline in the geode color.
+            boxes.add(new EspRenderer.Box(x1, yb, z1, x1 + 16, yt, z1 + 16, c[0] / 255f, c[1] / 255f, c[2] / 255f, fill));
             if (r == ChunkScanner.Result.BOTH) {
                 int[] g = cfg.geodeColor;
-                VertexRendering.drawBox(matrices, lines, x1 + 0.25, y1, z1 + 0.25, x2 - 0.25, y2, z2 - 0.25,
-                    g[0] / 255f, g[1] / 255f, g[2] / 255f, 1f);
+                boxes.add(new EspRenderer.Box(x1 + 0.25, yb, z1 + 0.25, x1 + 15.75, yt, z1 + 15.75,
+                    g[0] / 255f, g[1] / 255f, g[2] / 255f, 0f));
             }
         }
-        matrices.pop();
+
+        if (cfg.detectSus) {
+            int[] s = cfg.susColor;
+            for (ChunkPos pos : SusScanner.FOUND.keySet()) {
+                double x1 = pos.getStartX() + 1.0;
+                double z1 = pos.getStartZ() + 1.0;
+                boxes.add(new EspRenderer.Box(x1, yb, z1, x1 + 14, yt, z1 + 14, s[0] / 255f, s[1] / 255f, s[2] / 255f, fill));
+            }
+        }
     }
 }
