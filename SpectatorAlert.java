@@ -23,6 +23,7 @@ import java.util.UUID;
  */
 public class SpectatorAlert {
     private static final float MESSAGE_SECONDS = 3.0f;
+    private static final float WATCH_SECONDS = 2.5f;
 
     private static final Map<UUID, Long> LAST = new HashMap<>();
     private static boolean active = false;
@@ -33,6 +34,18 @@ public class SpectatorAlert {
     public static void clear() {
         LAST.clear();
         active = false;
+    }
+
+    /** Shows the alert for yourself, so you can check it works without a spectator around. */
+    public static void test(MinecraftClient mc) {
+        if (mc.player == null) return;
+        shownName = mc.player.getName().getString();
+        shownSkin = mc.player.getSkinTextures();
+        startMillis = System.currentTimeMillis();
+        active = true;
+        if (ChunkFinderConfig.INSTANCE.spectatorSound) {
+            mc.getSoundManager().play(PositionedSoundInstance.master(SoundEvents.ENTITY_ELDER_GUARDIAN_CURSE, 1.0f));
+        }
     }
 
     public static void tick(MinecraftClient mc) {
@@ -64,6 +77,26 @@ public class SpectatorAlert {
             }
             return;
         }
+
+        // Fallback: spectators that are in the player list but not loaded as entities near you.
+        if (!cfg.spectatorTabList) return;
+        for (PlayerListEntry entry : handler.getPlayerList()) {
+            if (entry.getGameMode() != GameMode.SPECTATOR) continue;
+            UUID id = entry.getProfile().getId();
+            if (id.equals(mc.player.getUuid())) continue;
+            Long last = LAST.get(id);
+            if (last != null && now - last < cooldown) continue;
+
+            LAST.put(id, now);
+            shownName = entry.getProfile().getName();
+            shownSkin = entry.getSkinTextures();
+            startMillis = now;
+            active = true;
+            if (cfg.spectatorSound) {
+                mc.getSoundManager().play(PositionedSoundInstance.master(SoundEvents.ENTITY_ELDER_GUARDIAN_CURSE, 1.0f));
+            }
+            return;
+        }
     }
 
     public static void render(DrawContext ctx, MinecraftClient mc) {
@@ -82,28 +115,43 @@ public class SpectatorAlert {
             int overlayAlpha = (int) (170 * fade);
             ctx.fill(0, 0, w, h, (overlayAlpha << 24));
 
-            // pop-in with a little overshoot, like the guardian jump
-            float scale = in < 1f ? 0.4f + 0.8f * in : 1.0f + 0.04f * (float) Math.sin(t * 9f);
-            int size = (int) (Math.min(w, h) * 0.42f * Math.min(scale, 1.2f));
+            // big head that zooms in fast, then keeps growing slowly
+            float grow = 0.55f + 0.45f * in + 0.12f * Math.min(1f, t / popup);
+            int size = (int) (h * 0.9f * Math.min(grow, 1.1f));
             int x = (w - size) / 2;
-            int y = (h - size) / 2 - 12;
+            int y = (h - size) / 2;
 
-            ctx.fill(x - 4, y - 4, x + size + 4, y + size + 4, 0xFFE9B523);
-            ctx.fill(x - 2, y - 2, x + size + 2, y + size + 2, 0xFF0A0B14);
             if (shownSkin != null) {
                 PlayerSkinDrawer.draw(ctx, shownSkin, x, y, size);
             }
-            ctx.drawCenteredTextWithShadow(mc.textRenderer, Text.literal(shownName), w / 2, y + size + 12, 0xFFFFE680);
-        } else if (t < popup + MESSAGE_SECONDS) {
+            ctx.drawCenteredTextWithShadow(mc.textRenderer, Text.literal(shownName), w / 2, h - 20, 0xFFFFE680);
+        } else if (t < popup + WATCH_SECONDS) {
+            // the staff name in big red letters with "WATCHING YOU" under it
             float m = t - popup;
+            float alpha = Math.min(Math.min(1f, m / 0.3f), Math.min(1f, (WATCH_SECONDS - m) / 0.5f));
+            int a = (int) (255 * alpha);
+            if (a > 8) {
+                ctx.getMatrices().push();
+                ctx.getMatrices().translate(w / 2f, h / 2f - 30, 0f);
+                ctx.getMatrices().scale(4f, 4f, 1f);
+                ctx.drawCenteredTextWithShadow(mc.textRenderer, Text.literal(shownName), 0, 0, (a << 24) | 0xFF5555);
+                ctx.getMatrices().pop();
+                ctx.getMatrices().push();
+                ctx.getMatrices().translate(w / 2f, h / 2f + 10, 0f);
+                ctx.getMatrices().scale(2f, 2f, 1f);
+                ctx.drawCenteredTextWithShadow(mc.textRenderer, Text.literal("WATCHING YOU"), 0, 0, (a << 24) | 0xAA2222);
+                ctx.getMatrices().pop();
+            }
+        } else if (t < popup + WATCH_SECONDS + MESSAGE_SECONDS) {
+            float m = t - popup - WATCH_SECONDS;
             float alpha = Math.min(Math.min(1f, m / 0.4f), Math.min(1f, (MESSAGE_SECONDS - m) / 0.6f));
             int a = (int) (255 * alpha);
             if (a > 8) {
                 ctx.getMatrices().push();
                 ctx.getMatrices().translate(w / 2f, h / 2f - 10, 0f);
-                ctx.getMatrices().scale(3f, 3f, 1f);
+                ctx.getMatrices().scale(2f, 2f, 1f);
                 ctx.drawCenteredTextWithShadow(mc.textRenderer, Text.literal(cfg.spectatorMessage), 0, 0,
-                    (a << 24) | 0xE9B523);
+                    (a << 24) | 0xFFFF55);
                 ctx.getMatrices().pop();
             }
         } else {

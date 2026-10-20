@@ -5,6 +5,7 @@ import net.minecraft.block.entity.*;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.vehicle.ChestMinecartEntity;
+import net.minecraft.text.Text;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Box;
 import net.minecraft.util.math.Vec3d;
@@ -53,7 +54,16 @@ public class ChestEsp {
     public static final Map<Kind, Integer> COUNTS = new EnumMap<>(Kind.class);
     private static int timer = 0;
 
+    private static final java.util.Set<Long> SPAWNERS_SEEN = new java.util.HashSet<>();
+    private static final java.util.Set<Long> BASES_SEEN = new java.util.HashSet<>();
+
+    private static void say(MinecraftClient mc, String text) {
+        if (mc.player != null) mc.player.sendMessage(Text.literal(text), false);
+    }
+
     public static void clear() {
+        SPAWNERS_SEEN.clear();
+        BASES_SEEN.clear();
         TARGETS.clear();
         COUNTS.clear();
         timer = 0;
@@ -95,7 +105,7 @@ public class ChestEsp {
         List<Target> list = new ArrayList<>();
         Map<Kind, Integer> counts = new EnumMap<>(Kind.class);
 
-        int radius = Math.min((cfg.chestEspRange + 15) / 16, mc.options.getViewDistance().getValue());
+        int radius = Math.min((cfg.chestEspRange + 15) / 16, 64);
         int pcx = mc.player.getChunkPos().x;
         int pcz = mc.player.getChunkPos().z;
 
@@ -104,16 +114,26 @@ public class ChestEsp {
             for (int cz = pcz - radius; cz <= pcz + radius; cz++) {
                 WorldChunk chunk = mc.world.getChunkManager().getWorldChunk(cx, cz);
                 if (chunk == null) continue;
+                int stored = 0;
                 for (BlockEntity be : chunk.getBlockEntities().values()) {
                     Kind k = classify(be);
-                    if (k == null || !enabled(k)) continue;
+                    if (k == null) continue;
                     BlockPos p = be.getPos();
+                    if (k == Kind.SPAWNER && cfg.alertSpawners && SPAWNERS_SEEN.add(p.asLong())) {
+                        say(mc, "[Pharaoh] Spawner found at X " + p.getX() + ", Y " + p.getY() + ", Z " + p.getZ());
+                    }
+                    if (k == Kind.CHEST || k == Kind.TRAPPED || k == Kind.BARREL || k == Kind.SHULKER || k == Kind.BED) stored++;
+                    if (!enabled(k)) continue;
                     BlockState st = be.getCachedState();
                     VoxelShape shape = st.getOutlineShape(mc.world, p);
                     Box b = shape.isEmpty() ? new Box(p) : shape.getBoundingBox().offset(p);
                     list.add(new Target(k, b.minX, b.minY, b.minZ, b.maxX, b.maxY, b.maxZ));
                     counts.merge(k, 1, Integer::sum);
                     if (list.size() >= 4000) break outer;
+                }
+                if (cfg.alertBases && stored >= 4 && BASES_SEEN.add(chunk.getPos().toLong())) {
+                    say(mc, "[Pharaoh] Possible base at X " + (chunk.getPos().getStartX() + 8)
+                        + ", Z " + (chunk.getPos().getStartZ() + 8) + " (" + stored + " storage/beds)");
                 }
             }
         }
@@ -124,20 +144,26 @@ public class ChestEsp {
         COUNTS.putAll(counts);
     }
 
+    /** Distance ignoring height, so chests deep underground or high up still count. */
+    private static double flatDist(Vec3d a, Vec3d b) {
+        double dx = a.x - b.x, dz = a.z - b.z;
+        return Math.sqrt(dx * dx + dz * dz);
+    }
+
     /** All targets right now, including chest minecarts, within range of the camera. */
     public static List<Target> current(MinecraftClient mc, Vec3d cam) {
         ChunkFinderConfig cfg = ChunkFinderConfig.INSTANCE;
         List<Target> out = new ArrayList<>();
         double range = cfg.chestEspRange;
         for (Target t : TARGETS) {
-            if (t.center().distanceTo(cam) <= range) out.add(t);
+            if (flatDist(t.center(), cam) <= range) out.add(t);
         }
         if (cfg.espMinecart && mc.world != null) {
             for (Entity e : mc.world.getEntities()) {
                 if (e instanceof ChestMinecartEntity) {
                     Box b = e.getBoundingBox();
                     Target t = new Target(Kind.MINECART, b.minX, b.minY, b.minZ, b.maxX, b.maxY, b.maxZ);
-                    if (t.center().distanceTo(cam) <= range) out.add(t);
+                    if (flatDist(t.center(), cam) <= range) out.add(t);
                 }
             }
         }

@@ -15,6 +15,9 @@ public class ChunkFinderConfig {
 
     public static ChunkFinderConfig INSTANCE = new ChunkFinderConfig();
 
+    // ---------------- Module list (on-screen list of tools that are ON) ----------------
+    public boolean showModuleList = true;
+
     // ---------------- Chunk Finder ----------------
     public boolean enabled = false;
     /** 1..10 - higher flags chunks with fewer activity blocks. */
@@ -51,7 +54,7 @@ public class ChunkFinderConfig {
 
     // ---------------- Chest ESP ----------------
     public boolean chestEspEnabled = false;
-    public int chestEspRange = 128;
+    public int chestEspRange = 512;
     public boolean espChest = true;
     public boolean espTrapped = true;
     public boolean espBarrel = true;
@@ -62,9 +65,12 @@ public class ChunkFinderConfig {
     public boolean espBed = true;
     public boolean espMinecart = true;
     public boolean chestEspFill = true;
-    public boolean chestEspTracers = false;
+    public boolean chestEspTracers = true;
     public boolean chestEspLabels = true;
     public boolean chestEspSummary = true;
+    /** Chat alerts from the Chest ESP scan. */
+    public boolean alertSpawners = true;
+    public boolean alertBases = true;
 
     // ---------------- Ore ESP ----------------
     public boolean oreEspEnabled = false;
@@ -82,13 +88,31 @@ public class ChunkFinderConfig {
     public boolean oreFill = true;
     public boolean oreTracers = false;
 
+    // ---------------- Render Method ----------------
+    public boolean renderMethodEnabled = true;
+    /** Render distance used while Render Method is on (2..16 chunks). */
+    public int renderMethodChunks = 2;
+    public boolean renderMethodActive = false;
+    public int renderMethodSaved = 12;
+
+    // ---------------- Staff Tracker ----------------
+    public boolean staffEnabled = true;
+    public boolean staffShowList = true;
+    public boolean staffAlerts = true;
+    /** Exact player names that always count as staff. Edit in config/chunkfinder.json. */
+    public String[] staffNames = {};
+    /** If a player's rank tag in the tab list contains one of these, they count as staff. */
+    public String[] staffKeywords = {"owner", "admin", "mod", "helper", "staff", "support", "manager", "developer"};
+
     // ---------------- Spectator Alert ----------------
     public boolean spectatorEnabled = true;
     public int spectatorRange = 24;
     public int spectatorPopupSeconds = 3;
     public int spectatorCooldownMinutes = 30;
     public boolean spectatorSound = true;
-    public String spectatorMessage = "Good luck, Pharaoh player";
+    /** Also alert for spectators that only show up in the player list (not loaded near you). */
+    public boolean spectatorTabList = true;
+    public String spectatorMessage = "Goodluck Pharaoh User, Be Careful";
 
     public int requiredActivityBlocks() {
         return 11 - Math.max(1, Math.min(10, sensitivity));
@@ -136,12 +160,16 @@ public class ChunkFinderConfig {
         boxHeight = Math.max(0.1, Math.min(16, boxHeight));
         freecamSpeed = clampInt(freecamSpeed, 1, 20);
         playerEspRange = clampInt(playerEspRange, 16, 512);
-        chestEspRange = clampInt(chestEspRange, 16, 256);
+        chestEspRange = clampInt(chestEspRange, 16, 1024);
         oreEspRange = clampInt(oreEspRange, 1, 8);
+        renderMethodChunks = clampInt(renderMethodChunks, 2, 16);
+        renderMethodSaved = clampInt(renderMethodSaved, 2, 32);
         spectatorRange = clampInt(spectatorRange, 4, 128);
         spectatorPopupSeconds = clampInt(spectatorPopupSeconds, 1, 10);
         spectatorCooldownMinutes = clampInt(spectatorCooldownMinutes, 0, 120);
-        if (spectatorMessage == null) spectatorMessage = "Good luck, Pharaoh player";
+        if (staffNames == null) staffNames = new String[0];
+        if (staffKeywords == null) staffKeywords = new String[0];
+        if (spectatorMessage == null || spectatorMessage.equals("Good luck, Pharaoh player")) spectatorMessage = "Goodluck Pharaoh User, Be Careful";
         activityColor = fixColor(activityColor, new int[]{255, 80, 80});
         geodeColor = fixColor(geodeColor, new int[]{170, 90, 255});
         susColor = fixColor(susColor, new int[]{255, 150, 0});

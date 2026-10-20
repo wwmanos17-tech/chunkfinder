@@ -16,6 +16,17 @@ import java.util.Map;
 public class PharaohHud {
     public static void register() {
         HudRenderCallback.EVENT.register(PharaohHud::render);
+        HudRenderCallback.EVENT.register((ctx, tc) -> renderSpectator(ctx));
+        HudRenderCallback.EVENT.register((ctx, tc) -> renderModuleList(ctx));
+        HudRenderCallback.EVENT.register((ctx, tc) -> {
+            try {
+                MinecraftClient mc = MinecraftClient.getInstance();
+                if (mc.world == null || mc.player == null || mc.options.hudHidden) return;
+                StaffTracker.render(ctx, mc);
+            } catch (Throwable t) {
+                ChunkFinderClient.LOGGER.error("Staff list drawing failed", t);
+            }
+        });
     }
 
     private static boolean failed = false;
@@ -28,10 +39,52 @@ public class PharaohHud {
             playerLabels(ctx, mc);
             chestLabels(ctx, mc);
             chestSummary(ctx, mc);
-            SpectatorAlert.render(ctx, mc);
         } catch (Throwable t) {
             failed = true;
             ChunkFinderClient.LOGGER.error("HUD drawing failed and was switched off for this session", t);
+        }
+    }
+
+    /** The list at the top right with the names of every tool that is switched on. */
+    private static void renderModuleList(DrawContext ctx) {
+        try {
+            MinecraftClient mc = MinecraftClient.getInstance();
+            ChunkFinderConfig c = ChunkFinderConfig.INSTANCE;
+            if (!c.showModuleList || mc.world == null || mc.player == null || mc.options.hudHidden) return;
+
+            List<String> names = new ArrayList<>();
+            if (c.enabled) names.add("CHUNK FINDER");
+            if (Freecam.isActive()) names.add("FREECAM");
+            if (c.playerEspEnabled) names.add("PLAYER ESP");
+            if (c.chestEspEnabled) names.add("CHEST ESP");
+            if (c.oreEspEnabled) names.add("ORE ESP");
+            if (RenderMethod.isActive()) names.add("RENDER METHOD");
+            if (c.spectatorEnabled) names.add("SPECTATOR ALERT");
+            if (names.isEmpty()) return;
+
+            names.sort((a, b) -> Integer.compare(mc.textRenderer.getWidth(b), mc.textRenderer.getWidth(a)));
+            int sw = mc.getWindow().getScaledWidth();
+            int y = 4;
+            for (String n : names) {
+                int w = mc.textRenderer.getWidth(n);
+                int right = sw - 3;
+                ctx.fill(right - w - 6, y, right, y + 11, 0xB0101018);
+                ctx.fill(right - 2, y, right, y + 11, 0xFFE0A526);
+                ctx.drawTextWithShadow(mc.textRenderer, Text.literal(n), right - w - 3, y + 2, 0xFFE6E6E6);
+                y += 12;
+            }
+        } catch (Throwable t) {
+            ChunkFinderClient.LOGGER.error("Module list drawing failed", t);
+        }
+    }
+
+    private static void renderSpectator(DrawContext ctx) {
+        try {
+            MinecraftClient mc = MinecraftClient.getInstance();
+            if (mc.world == null || mc.player == null) return;
+            SpectatorAlert.render(ctx, mc);
+        } catch (Throwable t) {
+            ChunkFinderClient.LOGGER.error("Spectator alert drawing failed", t);
         }
     }
 
