@@ -41,6 +41,8 @@ public class PharaohScreen extends Screen {
         String suffix = "";
         IntSupplier iget;
         IntConsumer iset;
+        net.minecraft.client.option.KeyBinding key;
+        java.util.function.Supplier<net.minecraft.client.option.KeyBinding> keySupplier;
     }
 
     private static class Module {
@@ -70,6 +72,7 @@ public class PharaohScreen extends Screen {
     private Panel dragPanel = null;
     private int dragDx, dragDy;
     private Hit dragSlider = null;
+    private Setting listening = null;
 
     public PharaohScreen(Screen parent) {
         super(Text.literal("Pharaoh"));
@@ -98,6 +101,13 @@ public class PharaohScreen extends Screen {
         return s;
     }
 
+    private static Setting keybind(java.util.function.Supplier<net.minecraft.client.option.KeyBinding> kb) {
+        Setting s = new Setting();
+        s.label = "Keybind";
+        s.keySupplier = kb;
+        return s;
+    }
+
     private static Module module(String name, BooleanSupplier on, Consumer<Boolean> setOn, Setting... settings) {
         Module m = new Module();
         m.name = name;
@@ -121,6 +131,7 @@ public class PharaohScreen extends Screen {
 
         PANELS.add(panel("Visuals", 0xFF8B5CF6,
             module("Chunk Finder", () -> c.enabled, v -> c.enabled = v,
+                keybind(ChunkFinderClient::toggleKey),
                 slider("Sensitivity", 1, 10, "", () -> c.sensitivity, v -> c.sensitivity = v),
                 slider("Simulation Dist", 2, 32, "", () -> c.simulationDistance, v -> c.simulationDistance = v),
                 toggle("Geodes", () -> c.detectGeodes, v -> c.detectGeodes = v),
@@ -170,15 +181,18 @@ public class PharaohScreen extends Screen {
 
         PANELS.add(panel("Movement", 0xFF3B82F6,
             module("Freecam", () -> c.freecamEnabled, v -> c.freecamEnabled = v,
+                keybind(ChunkFinderClient::freecamKey),
                 slider("Speed", 1, 20, "", () -> c.freecamSpeed, v -> c.freecamSpeed = v))));
 
         PANELS.add(panel("World", 0xFF14B8A6,
             module("Render Method", () -> c.renderMethodEnabled, v -> c.renderMethodEnabled = v,
+                keybind(ChunkFinderClient::renderKey),
                 slider("Render Distance", 2, 16, "", () -> c.renderMethodChunks, v -> c.renderMethodChunks = v))));
 
         PANELS.add(panel("Alerts", 0xFFEF4444,
             module("Spectator Alert", () -> c.spectatorEnabled, v -> c.spectatorEnabled = v,
                 slider("Range", 4, 128, "m", () -> c.spectatorRange, v -> c.spectatorRange = v),
+                slider("Head Size", 10, 100, "%", () -> c.spectatorHeadPercent, v -> c.spectatorHeadPercent = v),
                 slider("Popup Seconds", 1, 10, "s", () -> c.spectatorPopupSeconds, v -> c.spectatorPopupSeconds = v),
                 slider("Cooldown (min)", 0, 120, "", () -> c.spectatorCooldownMinutes, v -> c.spectatorCooldownMinutes = v),
                 toggle("Sound", () -> c.spectatorSound, v -> c.spectatorSound = v),
@@ -307,7 +321,11 @@ public class PharaohScreen extends Screen {
             boolean on = m.on.getAsBoolean();
             boolean hover = mx >= p.x && mx < p.x + PW && my >= y && my < y + ROW && my >= y0 && my < y0 + vh;
             if (hover) c.fill(p.x, y, p.x + PW, y + ROW, 0x16FFFFFF);
-            if (on) c.fill(p.x, y, p.x + 2, y + ROW, col);
+            if (on) {
+                // same look as the on-screen tool list: tinted box with a colored bar on the right edge
+                c.fill(p.x, y, p.x + PW, y + ROW, alpha(col, 0x38));
+                c.fill(p.x + PW - 2, y, p.x + PW, y + ROW, col);
+            }
             c.drawTextWithShadow(this.textRenderer, Text.literal(m.name), p.x + 7, y + 3, on ? bright : TEXT);
             if (!m.settings.isEmpty()) {
                 c.drawTextWithShadow(this.textRenderer, Text.literal(m.open ? "v" : ">"), p.x + PW - 33, y + 3, DIM);
@@ -320,7 +338,12 @@ public class PharaohScreen extends Screen {
                 for (Setting s : m.settings) {
                     boolean sh = mx >= p.x && mx < p.x + PW && my >= y && my < y + ROW && my >= y0 && my < y0 + vh;
                     c.fill(p.x, y, p.x + PW, y + ROW, sh ? 0xF0101224 : deeper);
-                    if (s.slider) {
+                    if (s.keySupplier != null) {
+                        String value = listening == s ? "press a key..." : s.keySupplier.get().getBoundKeyLocalizedText().getString();
+                        int vw = this.textRenderer.getWidth(value);
+                        c.drawTextWithShadow(this.textRenderer, Text.literal("Keybind"), p.x + 10, y + 3, TEXT);
+                        c.drawTextWithShadow(this.textRenderer, Text.literal(value), p.x + PW - vw - 6, y + 3, listening == s ? 0xFFFFFFFF : bright);
+                    } else if (s.slider) {
                         String value = s.iget.getAsInt() + s.suffix;
                         int vw = this.textRenderer.getWidth(value);
                         String label = this.textRenderer.trimToWidth(s.label, PW - vw - 20);
@@ -392,7 +415,9 @@ public class PharaohScreen extends Screen {
                 }
             } else if (button == 0) {
                 Setting s = h.s();
-                if (s.slider) {
+                if (s.keySupplier != null) {
+                    listening = (listening == s) ? null : s;
+                } else if (s.slider) {
                     dragSlider = h;
                     setSlider(h, mx);
                 } else {
@@ -446,6 +471,14 @@ public class PharaohScreen extends Screen {
 
     @Override
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+        if (listening != null) {
+            Setting s = listening;
+            listening = null;
+            if (keyCode != GLFW.GLFW_KEY_ESCAPE) {
+                ChunkFinderClient.rebind(s.keySupplier.get(), keyCode);
+            }
+            return true;
+        }
         if (keyCode == GLFW.GLFW_KEY_K) {
             close();
             return true;

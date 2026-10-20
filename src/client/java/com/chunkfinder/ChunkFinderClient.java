@@ -22,6 +22,18 @@ public class ChunkFinderClient implements ClientModInitializer {
     private static KeyBinding renderKey;
     private static ClientWorld lastWorld = null;
 
+    public static KeyBinding toggleKey() { return toggleKey; }
+    public static KeyBinding freecamKey() { return freecamKey; }
+    public static KeyBinding renderKey() { return renderKey; }
+
+    /** Gives a tool a new key, the same as changing it in Options > Controls. */
+    public static void rebind(KeyBinding kb, int glfwKey) {
+        if (kb == null) return;
+        kb.setBoundKey(InputUtil.fromKeyCode(glfwKey, 0));
+        KeyBinding.updateKeysByCode();
+        MinecraftClient.getInstance().options.write();
+    }
+
     /** Forget everything every tool has found, so the next scan starts fresh. */
     public static void clearAll() {
         ChunkScanner.clear();

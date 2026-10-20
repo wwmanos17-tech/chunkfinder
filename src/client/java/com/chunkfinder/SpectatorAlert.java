@@ -117,7 +117,7 @@ public class SpectatorAlert {
 
             // big head that zooms in fast, then keeps growing slowly
             float grow = 0.55f + 0.45f * in + 0.12f * Math.min(1f, t / popup);
-            int size = (int) (h * 0.9f * Math.min(grow, 1.1f));
+            int size = (int) (h * 0.9f * (cfg.spectatorHeadPercent / 100f) * Math.min(grow, 1.1f));
             int x = (w - size) / 2;
             int y = (h - size) / 2;
 

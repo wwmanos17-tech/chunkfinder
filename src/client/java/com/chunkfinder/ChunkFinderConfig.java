@@ -110,6 +110,8 @@ public class ChunkFinderConfig {
     public int spectatorPopupSeconds = 3;
     public int spectatorCooldownMinutes = 30;
     public boolean spectatorSound = true;
+    /** Size of the popup head in percent of the full size (10..100). */
+    public int spectatorHeadPercent = 50;
     /** Also alert for spectators that only show up in the player list (not loaded near you). */
     public boolean spectatorTabList = true;
     public String spectatorMessage = "Goodluck Pharaoh User, Be Careful";
@@ -165,6 +167,7 @@ public class ChunkFinderConfig {
         renderMethodChunks = clampInt(renderMethodChunks, 2, 16);
         renderMethodSaved = clampInt(renderMethodSaved, 2, 32);
         spectatorRange = clampInt(spectatorRange, 4, 128);
+        spectatorHeadPercent = clampInt(spectatorHeadPercent, 10, 100);
         spectatorPopupSeconds = clampInt(spectatorPopupSeconds, 1, 10);
         spectatorCooldownMinutes = clampInt(spectatorCooldownMinutes, 0, 120);
         if (staffNames == null) staffNames = new String[0];
