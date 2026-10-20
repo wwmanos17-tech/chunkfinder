@@ -3,7 +3,7 @@
   "id": "chunkfinder",
   "version": "${version}",
   "name": "Pharaoh",
-  "description": "Pharaoh: Chunk Finder (geodes, player activity, sus chunks), Freecam, Player ESP, Chest ESP, Ore ESP and Spectator Alert. Logo icon: Pharaoh by Delapouite, game-icons.net, CC BY 3.0.",
+  "description": "Pharaoh: Chunk Finder (geodes, player activity, sus chunks), Freecam, Player ESP, Chest ESP, Ore ESP, Render Method and Spectator Alert. Logo icon: Pharaoh by Delapouite, game-icons.net, CC BY 3.0.",
   "authors": [
     "wwmanos17",
     { "name": "Delapouite (logo icon, game-icons.net, CC BY 3.0)" }

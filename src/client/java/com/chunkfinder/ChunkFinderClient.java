@@ -19,6 +19,7 @@ public class ChunkFinderClient implements ClientModInitializer {
     private static KeyBinding toggleKey;
     private static KeyBinding menuKey;
     private static KeyBinding freecamKey;
+    private static KeyBinding renderKey;
     private static ClientWorld lastWorld = null;
 
     /** Forget everything every tool has found, so the next scan starts fresh. */
@@ -28,6 +29,7 @@ public class ChunkFinderClient implements ClientModInitializer {
         ChestEsp.clear();
         OreEsp.clear();
         SpectatorAlert.clear();
+        StaffTracker.clear();
     }
 
     @Override
@@ -40,6 +42,9 @@ public class ChunkFinderClient implements ClientModInitializer {
             "key.chunkfinder.settings", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_K, "key.categories.chunkfinder"));
         freecamKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
             "key.chunkfinder.freecam", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_F4, "key.categories.chunkfinder"));
+
+        renderKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
+            "key.chunkfinder.rendermethod", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_R, "key.categories.chunkfinder"));
 
         // Freecam reads the keyboard and releases the real movement keys before the player's own tick.
         ClientTickEvents.START_CLIENT_TICK.register(Freecam::tick);
@@ -55,6 +60,13 @@ public class ChunkFinderClient implements ClientModInitializer {
             }
             if (!ChunkFinderConfig.INSTANCE.freecamEnabled && Freecam.isActive()) {
                 Freecam.toggle(mc);
+            }
+
+            while (renderKey.wasPressed()) {
+                RenderMethod.toggle(mc);
+            }
+            if (!ChunkFinderConfig.INSTANCE.renderMethodEnabled && RenderMethod.isActive()) {
+                RenderMethod.restore(mc);
             }
 
             while (toggleKey.wasPressed()) {
@@ -93,6 +105,7 @@ public class ChunkFinderClient implements ClientModInitializer {
             ChestEsp.tick(mc);
             OreEsp.tick(mc);
             SpectatorAlert.tick(mc);
+            StaffTracker.tick(mc);
         } catch (Throwable t) {
             LOGGER.error("A Pharaoh tool failed this tick", t);
         }
