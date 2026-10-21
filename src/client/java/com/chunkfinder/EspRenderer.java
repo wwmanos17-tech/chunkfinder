@@ -26,15 +26,20 @@ public class EspRenderer {
     public record Line(double x1, double y1, double z1, double x2, double y2, double z2,
                        float r, float g, float b) {}
 
-    private static boolean failed = false;
+    private static long pausedUntil = 0;
+    private static int failCount = 0;
 
     public static void render(WorldRenderContext ctx) {
-        if (failed) return;
+        // if drawing ever fails, pause for 2 seconds and try again instead of switching ESP off for good
+        if (System.currentTimeMillis() < pausedUntil) return;
         try {
             draw(ctx);
         } catch (Throwable t) {
-            failed = true;
-            ChunkFinderClient.LOGGER.error("ESP rendering failed and was switched off for this session", t);
+            failCount++;
+            pausedUntil = System.currentTimeMillis() + 2000;
+            if (failCount <= 3) {
+                ChunkFinderClient.LOGGER.error("ESP rendering failed, trying again in 2 seconds", t);
+            }
             RenderSystem.enableDepthTest();
             RenderSystem.enableCull();
             RenderSystem.disableBlend();

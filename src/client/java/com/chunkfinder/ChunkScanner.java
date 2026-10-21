@@ -128,6 +128,8 @@ public class ChunkScanner {
                 || be instanceof BeaconBlockEntity
                 || be instanceof SignBlockEntity) {
                 score++;
+                // a chest or furnace deep underground is rarely natural, so it counts extra
+                if (be.getPos().getY() < 40 && !(be instanceof SignBlockEntity)) score++;
             }
         }
 

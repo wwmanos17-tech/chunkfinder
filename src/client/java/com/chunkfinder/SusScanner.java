@@ -2,6 +2,7 @@ package com.chunkfinder;
 
 import net.minecraft.block.BlockState;
 import net.minecraft.block.Blocks;
+import net.minecraft.block.entity.*;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.text.Text;
 import net.minecraft.util.math.BlockPos;
@@ -28,7 +29,12 @@ public class SusScanner {
     private static final Map<ChunkPos, Integer> SCORES = new HashMap<>();
     private static final Set<ChunkPos> NOTIFIED = new HashSet<>();
 
+    private static int age = 0;
+    private static final Set<ChunkPos> STALE = new HashSet<>();
+
     public static void clear() {
+        age = 0;
+        STALE.clear();
         FOUND.clear();
         SCORES.clear();
         NOTIFIED.clear();
@@ -39,13 +45,25 @@ public class SusScanner {
             || s.isOf(Blocks.SMOOTH_STONE) || s.isOf(Blocks.COBBLESTONE_STAIRS) || s.isOf(Blocks.COBBLESTONE_SLAB)
             || s.isOf(Blocks.CRAFTING_TABLE) || s.isOf(Blocks.OAK_DOOR) || s.isOf(Blocks.IRON_DOOR)
             || s.isOf(Blocks.REDSTONE_TORCH) || s.isOf(Blocks.REPEATER) || s.isOf(Blocks.PISTON)
-            || s.isOf(Blocks.TNT);
+            || s.isOf(Blocks.TNT) || s.isOf(Blocks.HOPPER) || s.isOf(Blocks.FURNACE) || s.isOf(Blocks.BLAST_FURNACE)
+            || s.isOf(Blocks.SMOKER) || s.isOf(Blocks.DISPENSER) || s.isOf(Blocks.DROPPER) || s.isOf(Blocks.OBSERVER)
+            || s.isOf(Blocks.STICKY_PISTON) || s.isOf(Blocks.REDSTONE_LAMP) || s.isOf(Blocks.COMPARATOR)
+            || s.isOf(Blocks.ENCHANTING_TABLE) || s.isOf(Blocks.ANVIL) || s.isOf(Blocks.BEACON)
+            || s.isOf(Blocks.DIAMOND_BLOCK) || s.isOf(Blocks.IRON_BLOCK) || s.isOf(Blocks.GOLD_BLOCK)
+            || s.isOf(Blocks.NETHERITE_BLOCK) || s.isOf(Blocks.EMERALD_BLOCK)
+            || s.isOf(Blocks.NOTE_BLOCK) || s.isOf(Blocks.SCAFFOLDING) || s.isOf(Blocks.WHITE_WOOL);
     }
 
     public static void tick(MinecraftClient mc) {
         ChunkFinderConfig cfg = ChunkFinderConfig.INSTANCE;
         if (!cfg.enabled || !cfg.detectSus || mc.world == null || mc.player == null) return;
         if (mc.world.getRegistryKey() != World.OVERWORLD) return;
+
+        // every minute, mark the scores as old so chunks that changed get checked again (old scores stay shown meanwhile)
+        if (++age >= 1200) {
+            age = 0;
+            STALE.addAll(SCORES.keySet());
+        }
 
         int radius = Math.min(cfg.simulationDistance, mc.options.getViewDistance().getValue());
         int pcx = mc.player.getChunkPos().x;
@@ -55,10 +73,11 @@ public class SusScanner {
         for (int cx = pcx - radius; cx <= pcx + radius && budget > 0; cx++) {
             for (int cz = pcz - radius; cz <= pcz + radius && budget > 0; cz++) {
                 ChunkPos pos = new ChunkPos(cx, cz);
-                if (SCORES.containsKey(pos)) continue;
+                if (SCORES.containsKey(pos) && !STALE.contains(pos)) continue;
                 WorldChunk chunk = mc.world.getChunkManager().getWorldChunk(cx, cz);
                 if (chunk == null) continue;
                 SCORES.put(pos, score(mc, chunk));
+                STALE.remove(pos);
                 budget--;
             }
         }
@@ -95,6 +114,19 @@ public class SusScanner {
             }
         }
         if (found) score += 4;
+
+        // 1b) things players keep in bases (chests, furnaces, hoppers, beds ...) below about y 47
+        int storage = 0;
+        for (BlockEntity be : chunk.getBlockEntities().values()) {
+            if (be.getPos().getY() > 47) continue;
+            if (be instanceof ChestBlockEntity || be instanceof BarrelBlockEntity || be instanceof ShulkerBoxBlockEntity
+                || be instanceof EnderChestBlockEntity || be instanceof AbstractFurnaceBlockEntity
+                || be instanceof HopperBlockEntity || be instanceof BedBlockEntity
+                || be instanceof DispenserBlockEntity || be instanceof BrewingStandBlockEntity) {
+                storage++;
+            }
+        }
+        score += Math.min(6, storage * 2);
 
         // 2) perfectly straight 1x2 tunnels
         score += Math.min(6, tunnels(mc, chunk) * 3);

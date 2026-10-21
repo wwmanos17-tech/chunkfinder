@@ -18,6 +18,9 @@ public class ChunkFinderConfig {
     // ---------------- Module list (on-screen list of tools that are ON) ----------------
     public boolean showModuleList = true;
 
+    // ---------------- Keys that switch a tool on/off (tool name -> GLFW key code) ----------------
+    public java.util.Map<String, Integer> moduleKeys = new java.util.HashMap<>();
+
     // ---------------- Chunk Finder ----------------
     public boolean enabled = false;
     /** 1..10 - higher flags chunks with fewer activity blocks. */
@@ -88,13 +91,6 @@ public class ChunkFinderConfig {
     public boolean oreFill = true;
     public boolean oreTracers = false;
 
-    // ---------------- Render Method ----------------
-    public boolean renderMethodEnabled = true;
-    /** Render distance used while Render Method is on (2..16 chunks). */
-    public int renderMethodChunks = 2;
-    public boolean renderMethodActive = false;
-    public int renderMethodSaved = 12;
-
     // ---------------- Staff Tracker ----------------
     public boolean staffEnabled = true;
     public boolean staffShowList = true;
@@ -104,12 +100,41 @@ public class ChunkFinderConfig {
     /** If a player's rank tag in the tab list contains one of these, they count as staff. */
     public String[] staffKeywords = {"owner", "admin", "mod", "helper", "staff", "support", "manager", "developer"};
 
+    // ---------------- Combat (for anarchy servers like 2b2t) ----------------
+    public boolean autoWTapEnabled = false;
+    /** How many ticks forward stays released (1..4). */
+    public int autoWTapTicks = 2;
+    public boolean autoCrystalEnabled = false;
+    public boolean autoCrystalPlace = true;
+    public boolean autoCrystalBreak = true;
+    public boolean autoCrystalObsidian = true;
+    /** Enemy must be within this many blocks (3..10). */
+    public int autoCrystalRange = 6;
+    /** Ticks between actions (1..10). */
+    public int autoCrystalDelay = 2;
+    /** Never break or place a crystal closer than this to you (0..6). */
+    public int autoCrystalSafeDistance = 3;
+
+    public boolean triggerBotEnabled = false;
+    public boolean triggerPlayersOnly = true;
+    /** Weapon charge needed before it hits, in percent (50..100). */
+    public int triggerCharge = 95;
+    public boolean autoAnchorEnabled = false;
+    /** Enemy must be within this many blocks (3..10). */
+    public int autoAnchorRange = 6;
+    /** Ticks between actions (1..10). */
+    public int autoAnchorDelay = 3;
+    /** Never place or set off an anchor closer than this to you (0..8). */
+    public int autoAnchorSafeDistance = 5;
+
     // ---------------- Spectator Alert ----------------
     public boolean spectatorEnabled = true;
     public int spectatorRange = 24;
     public int spectatorPopupSeconds = 3;
     public int spectatorCooldownMinutes = 30;
     public boolean spectatorSound = true;
+    /** Also show the real elder guardian jump-scare. */
+    public boolean spectatorGuardian = true;
     /** Size of the popup head in percent of the full size (10..100). */
     public int spectatorHeadPercent = 50;
     /** Also alert for spectators that only show up in the player list (not loaded near you). */
@@ -154,6 +179,7 @@ public class ChunkFinderConfig {
     }
 
     private void clamp() {
+        if (moduleKeys == null) moduleKeys = new java.util.HashMap<>();
         sensitivity = clampInt(sensitivity, 1, 10);
         susSensitivity = clampInt(susSensitivity, 1, 10);
         simulationDistance = clampInt(simulationDistance, 2, 32);
@@ -164,9 +190,15 @@ public class ChunkFinderConfig {
         playerEspRange = clampInt(playerEspRange, 16, 512);
         chestEspRange = clampInt(chestEspRange, 16, 1024);
         oreEspRange = clampInt(oreEspRange, 1, 8);
-        renderMethodChunks = clampInt(renderMethodChunks, 2, 16);
-        renderMethodSaved = clampInt(renderMethodSaved, 2, 32);
         spectatorRange = clampInt(spectatorRange, 4, 128);
+        autoWTapTicks = clampInt(autoWTapTicks, 1, 4);
+        autoCrystalRange = clampInt(autoCrystalRange, 3, 10);
+        autoCrystalDelay = clampInt(autoCrystalDelay, 1, 10);
+        autoCrystalSafeDistance = clampInt(autoCrystalSafeDistance, 0, 6);
+        triggerCharge = clampInt(triggerCharge, 50, 100);
+        autoAnchorRange = clampInt(autoAnchorRange, 3, 10);
+        autoAnchorDelay = clampInt(autoAnchorDelay, 1, 10);
+        autoAnchorSafeDistance = clampInt(autoAnchorSafeDistance, 0, 8);
         spectatorHeadPercent = clampInt(spectatorHeadPercent, 10, 100);
         spectatorPopupSeconds = clampInt(spectatorPopupSeconds, 1, 10);
         spectatorCooldownMinutes = clampInt(spectatorCooldownMinutes, 0, 120);

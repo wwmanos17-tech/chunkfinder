@@ -19,12 +19,11 @@ public class ChunkFinderClient implements ClientModInitializer {
     private static KeyBinding toggleKey;
     private static KeyBinding menuKey;
     private static KeyBinding freecamKey;
-    private static KeyBinding renderKey;
     private static ClientWorld lastWorld = null;
 
+    public static KeyBinding menuKey() { return menuKey; }
     public static KeyBinding toggleKey() { return toggleKey; }
     public static KeyBinding freecamKey() { return freecamKey; }
-    public static KeyBinding renderKey() { return renderKey; }
 
     /** Gives a tool a new key, the same as changing it in Options > Controls. */
     public static void rebind(KeyBinding kb, int glfwKey) {
@@ -42,11 +41,15 @@ public class ChunkFinderClient implements ClientModInitializer {
         OreEsp.clear();
         SpectatorAlert.clear();
         StaffTracker.clear();
+        AutoWTap.clear();
+        AutoCrystal.clear();
+        AutoAnchor.clear();
     }
 
     @Override
     public void onInitializeClient() {
         ChunkFinderConfig.load();
+        PharaohScreen.ensureBuilt();
 
         toggleKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
             "key.chunkfinder.toggle", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_J, "key.categories.chunkfinder"));
@@ -55,11 +58,9 @@ public class ChunkFinderClient implements ClientModInitializer {
         freecamKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
             "key.chunkfinder.freecam", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_F4, "key.categories.chunkfinder"));
 
-        renderKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
-            "key.chunkfinder.rendermethod", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_R, "key.categories.chunkfinder"));
-
         // Freecam reads the keyboard and releases the real movement keys before the player's own tick.
         ClientTickEvents.START_CLIENT_TICK.register(Freecam::tick);
+        ClientTickEvents.START_CLIENT_TICK.register(AutoWTap::pre);
 
         ClientTickEvents.END_CLIENT_TICK.register(mc -> {
             while (freecamKey.wasPressed()) {
@@ -72,13 +73,6 @@ public class ChunkFinderClient implements ClientModInitializer {
             }
             if (!ChunkFinderConfig.INSTANCE.freecamEnabled && Freecam.isActive()) {
                 Freecam.toggle(mc);
-            }
-
-            while (renderKey.wasPressed()) {
-                RenderMethod.toggle(mc);
-            }
-            if (!ChunkFinderConfig.INSTANCE.renderMethodEnabled && RenderMethod.isActive()) {
-                RenderMethod.restore(mc);
             }
 
             while (toggleKey.wasPressed()) {
@@ -103,6 +97,7 @@ public class ChunkFinderClient implements ClientModInitializer {
                 clearAll();
             }
 
+            PharaohScreen.pollKeys(mc);
             tickTools(mc);
         });
 
@@ -110,16 +105,25 @@ public class ChunkFinderClient implements ClientModInitializer {
         PharaohHud.register();
     }
 
-    private static void tickTools(MinecraftClient mc) {
+    private static void safe(String name, Runnable r) {
         try {
-            ChunkScanner.tick(mc);
-            SusScanner.tick(mc);
-            ChestEsp.tick(mc);
-            OreEsp.tick(mc);
-            SpectatorAlert.tick(mc);
-            StaffTracker.tick(mc);
+            r.run();
         } catch (Throwable t) {
-            LOGGER.error("A Pharaoh tool failed this tick", t);
+            LOGGER.error("Pharaoh tool failed this tick: " + name, t);
         }
+    }
+
+    /** Each tool runs on its own, so one failing tool can never stop the others (like Chest ESP). */
+    private static void tickTools(MinecraftClient mc) {
+        safe("ChestEsp", () -> ChestEsp.tick(mc));
+        safe("ChunkScanner", () -> ChunkScanner.tick(mc));
+        safe("SusScanner", () -> SusScanner.tick(mc));
+        safe("OreEsp", () -> OreEsp.tick(mc));
+        safe("SpectatorAlert", () -> SpectatorAlert.tick(mc));
+        safe("StaffTracker", () -> StaffTracker.tick(mc));
+        safe("TriggerBot", () -> TriggerBot.tick(mc));
+        safe("AutoWTap", () -> AutoWTap.post(mc));
+        safe("AutoCrystal", () -> AutoCrystal.tick(mc));
+        safe("AutoAnchor", () -> AutoAnchor.tick(mc));
     }
 }

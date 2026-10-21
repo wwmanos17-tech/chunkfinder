@@ -100,7 +100,7 @@ public class ChestEsp {
         ChunkFinderConfig cfg = ChunkFinderConfig.INSTANCE;
         if (!cfg.chestEspEnabled || mc.world == null || mc.player == null) return;
         if (timer-- > 0) return;
-        timer = 10;
+        timer = 5;
 
         List<Target> list = new ArrayList<>();
         Map<Kind, Integer> counts = new EnumMap<>(Kind.class);
@@ -179,8 +179,16 @@ public class ChestEsp {
         Vec3d start = Proj.tracerStart(mc);
         int tracerCount = 0;
         for (Target t : current(mc, cam)) {
-            boxes.add(new EspRenderer.Box(t.x1(), t.y1(), t.z1(), t.x2(), t.y2(), t.z2(),
+            // far away chests get a bigger box and a tall line above them so they are easy to spot
+            Vec3d ctr = t.center();
+            double dist = Math.sqrt(flatDist(ctr, cam) * flatDist(ctr, cam) + (ctr.y - cam.y) * (ctr.y - cam.y));
+            double grow = Math.min(1.5, Math.max(0, (dist - 40) / 100.0));
+            boxes.add(new EspRenderer.Box(t.x1() - grow, t.y1() - grow, t.z1() - grow, t.x2() + grow, t.y2() + grow, t.z2() + grow,
                 t.kind().r, t.kind().g, t.kind().b, cfg.chestEspFill ? 0.22f : 0f));
+            if (dist > 40 && tracerCount < 150) {
+                lines.add(new EspRenderer.Line(ctr.x, t.y2() + grow, ctr.z, ctr.x, t.y2() + grow + 12, ctr.z,
+                    t.kind().r, t.kind().g, t.kind().b));
+            }
             if (cfg.chestEspTracers && tracerCount < 150) {
                 Vec3d c = t.center();
                 lines.add(new EspRenderer.Line(start.x, start.y, start.z, c.x, c.y, c.z,

@@ -8,6 +8,7 @@ import net.minecraft.client.network.ClientPlayNetworkHandler;
 import net.minecraft.client.network.PlayerListEntry;
 import net.minecraft.client.sound.PositionedSoundInstance;
 import net.minecraft.client.util.SkinTextures;
+import net.minecraft.particle.ParticleTypes;
 import net.minecraft.sound.SoundEvents;
 import net.minecraft.text.Text;
 import net.minecraft.world.GameMode;
@@ -31,6 +32,17 @@ public class SpectatorAlert {
     private static SkinTextures shownSkin = null;
     private static long startMillis = 0;
 
+    /** The sound and the elder guardian that jumps at your face, like the real curse. */
+    private static void effects(MinecraftClient mc) {
+        ChunkFinderConfig cfg = ChunkFinderConfig.INSTANCE;
+        if (cfg.spectatorSound) {
+            mc.getSoundManager().play(PositionedSoundInstance.master(SoundEvents.ENTITY_ELDER_GUARDIAN_CURSE, 1.0f));
+        }
+        if (cfg.spectatorGuardian && mc.world != null && mc.player != null) {
+            mc.world.addParticle(ParticleTypes.ELDER_GUARDIAN, mc.player.getX(), mc.player.getY(), mc.player.getZ(), 0.0, 0.0, 0.0);
+        }
+    }
+
     public static void clear() {
         LAST.clear();
         active = false;
@@ -43,9 +55,7 @@ public class SpectatorAlert {
         shownSkin = mc.player.getSkinTextures();
         startMillis = System.currentTimeMillis();
         active = true;
-        if (ChunkFinderConfig.INSTANCE.spectatorSound) {
-            mc.getSoundManager().play(PositionedSoundInstance.master(SoundEvents.ENTITY_ELDER_GUARDIAN_CURSE, 1.0f));
-        }
+        effects(mc);
     }
 
     public static void tick(MinecraftClient mc) {
@@ -72,9 +82,7 @@ public class SpectatorAlert {
             shownSkin = entry.getSkinTextures();
             startMillis = now;
             active = true;
-            if (cfg.spectatorSound) {
-                mc.getSoundManager().play(PositionedSoundInstance.master(SoundEvents.ENTITY_ELDER_GUARDIAN_CURSE, 1.0f));
-            }
+            effects(mc);
             return;
         }
 
@@ -92,9 +100,7 @@ public class SpectatorAlert {
             shownSkin = entry.getSkinTextures();
             startMillis = now;
             active = true;
-            if (cfg.spectatorSound) {
-                mc.getSoundManager().play(PositionedSoundInstance.master(SoundEvents.ENTITY_ELDER_GUARDIAN_CURSE, 1.0f));
-            }
+            effects(mc);
             return;
         }
     }

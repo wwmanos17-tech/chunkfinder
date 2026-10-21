@@ -29,10 +29,10 @@ public class PharaohHud {
         });
     }
 
-    private static boolean failed = false;
+    private static long pausedUntil = 0;
 
     private static void render(DrawContext ctx, RenderTickCounter tickCounter) {
-        if (failed) return;
+        if (System.currentTimeMillis() < pausedUntil) return;
         try {
             MinecraftClient mc = MinecraftClient.getInstance();
             if (mc.world == null || mc.player == null) return;
@@ -40,8 +40,8 @@ public class PharaohHud {
             chestLabels(ctx, mc);
             chestSummary(ctx, mc);
         } catch (Throwable t) {
-            failed = true;
-            ChunkFinderClient.LOGGER.error("HUD drawing failed and was switched off for this session", t);
+            pausedUntil = System.currentTimeMillis() + 2000;
+            ChunkFinderClient.LOGGER.error("HUD drawing failed, trying again in 2 seconds", t);
         }
     }
 
@@ -58,8 +58,11 @@ public class PharaohHud {
             if (c.playerEspEnabled) names.add("PLAYER ESP");
             if (c.chestEspEnabled) names.add("CHEST ESP");
             if (c.oreEspEnabled) names.add("ORE ESP");
-            if (RenderMethod.isActive()) names.add("RENDER METHOD");
             if (c.spectatorEnabled) names.add("SPECTATOR ALERT");
+            if (c.triggerBotEnabled) names.add("TRIGGER BOT");
+            if (c.autoWTapEnabled) names.add("AUTO W-TAP");
+            if (c.autoCrystalEnabled) names.add("AUTO CRYSTAL");
+            if (c.autoAnchorEnabled) names.add("AUTO ANCHOR");
             if (names.isEmpty()) return;
 
             names.sort((a, b) -> Integer.compare(mc.textRenderer.getWidth(b), mc.textRenderer.getWidth(a)));

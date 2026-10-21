@@ -43,6 +43,7 @@ public class PharaohScreen extends Screen {
         IntConsumer iset;
         net.minecraft.client.option.KeyBinding key;
         java.util.function.Supplier<net.minecraft.client.option.KeyBinding> keySupplier;
+        String modKeyFor;
     }
 
     private static class Module {
@@ -102,8 +103,12 @@ public class PharaohScreen extends Screen {
     }
 
     private static Setting keybind(java.util.function.Supplier<net.minecraft.client.option.KeyBinding> kb) {
+        return keybind("Keybind", kb);
+    }
+
+    private static Setting keybind(String label, java.util.function.Supplier<net.minecraft.client.option.KeyBinding> kb) {
         Setting s = new Setting();
-        s.label = "Keybind";
+        s.label = label;
         s.keySupplier = kb;
         return s;
     }
@@ -113,6 +118,14 @@ public class PharaohScreen extends Screen {
         m.name = name;
         m.on = on;
         m.setOn = setOn;
+        boolean hasKey = false;
+        for (Setting s : settings) if (s.keySupplier != null) hasKey = true;
+        if (!hasKey) {
+            Setting k = new Setting();
+            k.label = "Toggle Key";
+            k.modKeyFor = name;
+            m.settings.add(k);
+        }
         for (Setting s : settings) m.settings.add(s);
         return m;
     }
@@ -123,6 +136,42 @@ public class PharaohScreen extends Screen {
         p.color = color;
         for (Module m : mods) p.mods.add(m);
         return p;
+    }
+
+    /** Builds the tool list early, so the toggle keys work before the menu is ever opened. */
+    public static void ensureBuilt() {
+        buildPanels();
+    }
+
+    private static final java.util.Map<String, Boolean> KEY_WAS_DOWN = new java.util.HashMap<>();
+
+    /** Called every tick: switches a tool when its toggle key is pressed. */
+    public static void pollKeys(net.minecraft.client.MinecraftClient mc) {
+        if (mc.player == null || mc.getWindow() == null) return;
+        ChunkFinderConfig cfg = ChunkFinderConfig.INSTANCE;
+        long window = mc.getWindow().getHandle();
+        boolean free = mc.currentScreen == null;
+        for (Panel p : PANELS) {
+            for (Module m : p.mods) {
+                Integer code = cfg.moduleKeys.get(m.name);
+                if (code == null || code <= 0) continue;
+                boolean down = net.minecraft.client.util.InputUtil.isKeyPressed(window, code);
+                boolean was = KEY_WAS_DOWN.getOrDefault(m.name, false);
+                KEY_WAS_DOWN.put(m.name, down);
+                if (down && !was && free) {
+                    boolean now = !m.on.getAsBoolean();
+                    m.setOn.accept(now);
+                    ChunkFinderConfig.save();
+                    ChunkFinderClient.clearAll();
+                    mc.player.sendMessage(Text.literal(m.name + ": " + (now ? "ON" : "OFF")), true);
+                }
+            }
+        }
+    }
+
+    private static String keyName(int code) {
+        if (code <= 0) return "None";
+        return net.minecraft.client.util.InputUtil.fromKeyCode(code, 0).getLocalizedText().getString();
     }
 
     private static void buildPanels() {
@@ -179,15 +228,28 @@ public class PharaohScreen extends Screen {
                 toggle("Filled", () -> c.oreFill, v -> c.oreFill = v),
                 toggle("Tracers", () -> c.oreTracers, v -> c.oreTracers = v))));
 
+        PANELS.add(panel("Combat", 0xFFF97316,
+            module("Trigger Bot", () -> c.triggerBotEnabled, v -> c.triggerBotEnabled = v,
+                toggle("Players Only", () -> c.triggerPlayersOnly, v -> c.triggerPlayersOnly = v),
+                slider("Weapon Charge", 50, 100, "%", () -> c.triggerCharge, v -> c.triggerCharge = v)),
+            module("Auto W-Tap", () -> c.autoWTapEnabled, v -> c.autoWTapEnabled = v,
+                slider("Tap Ticks", 1, 4, "", () -> c.autoWTapTicks, v -> c.autoWTapTicks = v)),
+            module("Auto Crystal", () -> c.autoCrystalEnabled, v -> c.autoCrystalEnabled = v,
+                toggle("Place Crystals", () -> c.autoCrystalPlace, v -> c.autoCrystalPlace = v),
+                toggle("Break Crystals", () -> c.autoCrystalBreak, v -> c.autoCrystalBreak = v),
+                toggle("Place Obsidian", () -> c.autoCrystalObsidian, v -> c.autoCrystalObsidian = v),
+                slider("Enemy Range", 3, 10, "", () -> c.autoCrystalRange, v -> c.autoCrystalRange = v),
+                slider("Delay (ticks)", 1, 10, "", () -> c.autoCrystalDelay, v -> c.autoCrystalDelay = v),
+                slider("Safe Distance", 0, 6, "", () -> c.autoCrystalSafeDistance, v -> c.autoCrystalSafeDistance = v)),
+            module("Auto Anchor", () -> c.autoAnchorEnabled, v -> c.autoAnchorEnabled = v,
+                slider("Enemy Range", 3, 10, "", () -> c.autoAnchorRange, v -> c.autoAnchorRange = v),
+                slider("Delay (ticks)", 1, 10, "", () -> c.autoAnchorDelay, v -> c.autoAnchorDelay = v),
+                slider("Safe Distance", 0, 8, "", () -> c.autoAnchorSafeDistance, v -> c.autoAnchorSafeDistance = v))));
+
         PANELS.add(panel("Movement", 0xFF3B82F6,
             module("Freecam", () -> c.freecamEnabled, v -> c.freecamEnabled = v,
                 keybind(ChunkFinderClient::freecamKey),
                 slider("Speed", 1, 20, "", () -> c.freecamSpeed, v -> c.freecamSpeed = v))));
-
-        PANELS.add(panel("World", 0xFF14B8A6,
-            module("Render Method", () -> c.renderMethodEnabled, v -> c.renderMethodEnabled = v,
-                keybind(ChunkFinderClient::renderKey),
-                slider("Render Distance", 2, 16, "", () -> c.renderMethodChunks, v -> c.renderMethodChunks = v))));
 
         PANELS.add(panel("Alerts", 0xFFEF4444,
             module("Spectator Alert", () -> c.spectatorEnabled, v -> c.spectatorEnabled = v,
@@ -196,6 +258,7 @@ public class PharaohScreen extends Screen {
                 slider("Popup Seconds", 1, 10, "s", () -> c.spectatorPopupSeconds, v -> c.spectatorPopupSeconds = v),
                 slider("Cooldown (min)", 0, 120, "", () -> c.spectatorCooldownMinutes, v -> c.spectatorCooldownMinutes = v),
                 toggle("Sound", () -> c.spectatorSound, v -> c.spectatorSound = v),
+                toggle("Guardian Effect", () -> c.spectatorGuardian, v -> c.spectatorGuardian = v),
                 toggle("Tab List Detect", () -> c.spectatorTabList, v -> c.spectatorTabList = v),
                 toggle("Test Alert (click)", () -> false, v -> {
                     net.minecraft.client.MinecraftClient mc = net.minecraft.client.MinecraftClient.getInstance();
@@ -207,6 +270,8 @@ public class PharaohScreen extends Screen {
                 toggle("Join / Leave Alerts", () -> c.staffAlerts, v -> c.staffAlerts = v))));
 
         PANELS.add(panel("Client", 0xFFE0A526,
+            module("Menu", () -> true, v -> { },
+                keybind("Menu Key", ChunkFinderClient::menuKey)),
             module("Tool List", () -> c.showModuleList, v -> c.showModuleList = v)));
     }
 
@@ -228,8 +293,9 @@ public class PharaohScreen extends Screen {
         int i = 0;
         for (Panel p : PANELS) {
             if (!p.placed) {
-                p.x = 12 + i * (PW + 8);
-                p.y = 42;
+                int perRow = Math.max(1, (this.width - 12) / (PW + 8));
+                p.x = 12 + (i % perRow) * (PW + 8);
+                p.y = 42 + (i / perRow) * 120;
                 p.placed = true;
             }
             p.x = Math.max(0, Math.min(this.width - PW, p.x));
@@ -278,7 +344,7 @@ public class PharaohScreen extends Screen {
         // logo top left, name in the middle
         LogoRenderer.draw(c, 8, 4);
         c.drawTextWithShadow(this.textRenderer,
-            Text.literal("Left click: on/off   Right click: settings   Drag the title bars   K: close"),
+            Text.literal("Left click: on/off   Right click: settings   Middle click: set its key (Backspace clears)"),
             8, this.height - 22, DIM);
         c.drawTextWithShadow(this.textRenderer,
             Text.literal("Icon: \"Pharaoh\" by Delapouite, game-icons.net, CC BY 3.0"),
@@ -297,6 +363,7 @@ public class PharaohScreen extends Screen {
         int vh = Math.min(total, maxPanelHeight());
         p.scroll = Math.max(0, Math.min(p.scroll, Math.max(0, total - vh)));
 
+        ChunkFinderConfig cfg = ChunkFinderConfig.INSTANCE;
         int col = p.color;
         int bright = mix(col, 0xFFFFFFFF, 0.45f);
         int deep = 0xF00A0C18;       // the deep navy used behind everything
@@ -327,6 +394,15 @@ public class PharaohScreen extends Screen {
                 c.fill(p.x + PW - 2, y, p.x + PW, y + ROW, col);
             }
             c.drawTextWithShadow(this.textRenderer, Text.literal(m.name), p.x + 7, y + 3, on ? bright : TEXT);
+            Integer boundKey = cfg.moduleKeys.get(m.name);
+            if (boundKey != null && boundKey > 0) {
+                String tag = "[" + keyName(boundKey) + "]";
+                int nameW = this.textRenderer.getWidth(m.name);
+                int tagW = this.textRenderer.getWidth(tag);
+                if (7 + nameW + 4 + tagW < PW - 38) {
+                    c.drawTextWithShadow(this.textRenderer, Text.literal(tag), p.x + 7 + nameW + 4, y + 3, DIM);
+                }
+            }
             if (!m.settings.isEmpty()) {
                 c.drawTextWithShadow(this.textRenderer, Text.literal(m.open ? "v" : ">"), p.x + PW - 33, y + 3, DIM);
             }
@@ -338,10 +414,16 @@ public class PharaohScreen extends Screen {
                 for (Setting s : m.settings) {
                     boolean sh = mx >= p.x && mx < p.x + PW && my >= y && my < y + ROW && my >= y0 && my < y0 + vh;
                     c.fill(p.x, y, p.x + PW, y + ROW, sh ? 0xF0101224 : deeper);
-                    if (s.keySupplier != null) {
+                    if (s.modKeyFor != null) {
+                        Integer kc = ChunkFinderConfig.INSTANCE.moduleKeys.get(s.modKeyFor);
+                        String value = listening == s ? "press a key..." : keyName(kc == null ? 0 : kc);
+                        int vw = this.textRenderer.getWidth(value);
+                        c.drawTextWithShadow(this.textRenderer, Text.literal("Toggle Key"), p.x + 10, y + 3, TEXT);
+                        c.drawTextWithShadow(this.textRenderer, Text.literal(value), p.x + PW - vw - 6, y + 3, listening == s ? 0xFFFFFFFF : bright);
+                    } else if (s.keySupplier != null) {
                         String value = listening == s ? "press a key..." : s.keySupplier.get().getBoundKeyLocalizedText().getString();
                         int vw = this.textRenderer.getWidth(value);
-                        c.drawTextWithShadow(this.textRenderer, Text.literal("Keybind"), p.x + 10, y + 3, TEXT);
+                        c.drawTextWithShadow(this.textRenderer, Text.literal(s.label), p.x + 10, y + 3, TEXT);
                         c.drawTextWithShadow(this.textRenderer, Text.literal(value), p.x + PW - vw - 6, y + 3, listening == s ? 0xFFFFFFFF : bright);
                     } else if (s.slider) {
                         String value = s.iget.getAsInt() + s.suffix;
@@ -412,10 +494,18 @@ public class PharaohScreen extends Screen {
                     ChunkFinderClient.clearAll();
                 } else if (button == 1 && !h.m().settings.isEmpty()) {
                     h.m().open = !h.m().open;
+                } else if (button == 2) {
+                    // middle click: set this tool's on/off key right away
+                    for (Setting ks : h.m().settings) {
+                        if (ks.modKeyFor != null || ks.keySupplier != null) {
+                            listening = (listening == ks) ? null : ks;
+                            break;
+                        }
+                    }
                 }
             } else if (button == 0) {
                 Setting s = h.s();
-                if (s.keySupplier != null) {
+                if (s.keySupplier != null || s.modKeyFor != null) {
                     listening = (listening == s) ? null : s;
                 } else if (s.slider) {
                     dragSlider = h;
@@ -474,12 +564,19 @@ public class PharaohScreen extends Screen {
         if (listening != null) {
             Setting s = listening;
             listening = null;
-            if (keyCode != GLFW.GLFW_KEY_ESCAPE) {
+            if (s.modKeyFor != null) {
+                if (keyCode == GLFW.GLFW_KEY_BACKSPACE || keyCode == GLFW.GLFW_KEY_DELETE) {
+                    ChunkFinderConfig.INSTANCE.moduleKeys.remove(s.modKeyFor);
+                } else if (keyCode != GLFW.GLFW_KEY_ESCAPE) {
+                    ChunkFinderConfig.INSTANCE.moduleKeys.put(s.modKeyFor, keyCode);
+                }
+                ChunkFinderConfig.save();
+            } else if (keyCode != GLFW.GLFW_KEY_ESCAPE) {
                 ChunkFinderClient.rebind(s.keySupplier.get(), keyCode);
             }
             return true;
         }
-        if (keyCode == GLFW.GLFW_KEY_K) {
+        if (ChunkFinderClient.menuKey().matchesKey(keyCode, scanCode)) {
             close();
             return true;
         }
