@@ -4,6 +4,8 @@ import net.minecraft.block.Block;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.Blocks;
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.text.Text;
+import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.ChunkPos;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.chunk.ChunkSection;
@@ -23,11 +25,11 @@ public class OreEsp {
     private record Hit(int x, int y, int z, int ore) {}
 
     public static final String[] NAMES = {
-        "Diamond", "Ancient Debris", "Emerald", "Gold", "Iron", "Coal", "Redstone", "Lapis", "Copper", "Gilded Blackstone"
+        "Diamond", "Ancient Debris", "Emerald", "Gold", "Iron", "Coal", "Redstone", "Lapis", "Copper", "Gilded Blackstone", "Netherite Block"
     };
     private static final float[][] COLORS = {
         {80, 235, 255}, {255, 150, 80}, {60, 255, 100}, {255, 215, 0}, {235, 205, 185},
-        {170, 170, 170}, {255, 40, 40}, {60, 100, 255}, {255, 130, 60}, {255, 225, 60}
+        {170, 170, 170}, {255, 40, 40}, {60, 100, 255}, {255, 130, 60}, {255, 225, 60}, {120, 70, 90}
     };
 
     private static final Map<Block, Integer> ORE_INDEX = new HashMap<>();
@@ -43,6 +45,7 @@ public class OreEsp {
         reg(7, Blocks.LAPIS_ORE, Blocks.DEEPSLATE_LAPIS_ORE);
         reg(8, Blocks.COPPER_ORE, Blocks.DEEPSLATE_COPPER_ORE);
         reg(9, Blocks.GILDED_BLACKSTONE);
+        reg(10, Blocks.NETHERITE_BLOCK);
     }
 
     private static void reg(int idx, Block... blocks) {
@@ -54,7 +57,30 @@ public class OreEsp {
     private static List<ChunkPos> pending = new ArrayList<>();
     private static int ticks = 0;
 
+    private static final java.util.Set<Long> ALERTED = new java.util.HashSet<>();
+
+    /** Chat message for new ancient debris and gilded blackstone, one line per chunk and type. */
+    private static void alertRare(MinecraftClient mc, List<Hit> hits) {
+        int[] count = new int[3];
+        Hit[] first = new Hit[3];
+        for (Hit h : hits) {
+            int t = h.ore() == 1 ? 0 : h.ore() == 9 ? 1 : h.ore() == 10 ? 2 : -1;
+            if (t < 0) continue;
+            if (!ALERTED.add(BlockPos.asLong(h.x(), h.y(), h.z()))) continue;
+            count[t]++;
+            if (first[t] == null) first[t] = h;
+        }
+        String[] names = {"Ancient Debris", "Gilded Blackstone", "Netherite Block"};
+        for (int t = 0; t < 3; t++) {
+            if (count[t] == 0 || mc.player == null) continue;
+            Hit h = first[t];
+            mc.player.sendMessage(Text.literal("[Pharaoh] " + names[t] + " x" + count[t] + " found at X " + h.x()
+                + ", Y " + h.y() + ", Z " + h.z()), false);
+        }
+    }
+
     public static void clear() {
+        ALERTED.clear();
         CACHE.clear();
         SCANNED_AT.clear();
         pending = new ArrayList<>();
@@ -74,6 +100,7 @@ public class OreEsp {
             case 7 -> c.oreLapis;
             case 8 -> c.oreCopper;
             case 9 -> c.oreGilded;
+            case 10 -> c.oreNetherite;
             default -> false;
         };
     }
@@ -114,7 +141,9 @@ public class OreEsp {
             ChunkPos pos = pending.remove(0);
             WorldChunk chunk = mc.world.getChunkManager().getWorldChunk(pos.x, pos.z);
             if (chunk == null) continue;
-            CACHE.put(pos, scan(chunk));
+            List<Hit> found = scan(chunk);
+            CACHE.put(pos, found);
+            if (cfg.alertRareOres) alertRare(mc, found);
             SCANNED_AT.put(pos, ticks);
             budget--;
         }

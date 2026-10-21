@@ -54,6 +54,9 @@ public class ChestEsp {
     public static final Map<Kind, Integer> COUNTS = new EnumMap<>(Kind.class);
     private static int timer = 0;
 
+    /** Everything seen so far, so a chest the server stops sending later stays marked. */
+    private static final Map<Long, Target> MEMORY = new java.util.LinkedHashMap<>();
+
     private static final java.util.Set<Long> SPAWNERS_SEEN = new java.util.HashSet<>();
     private static final java.util.Set<Long> BASES_SEEN = new java.util.HashSet<>();
 
@@ -66,6 +69,7 @@ public class ChestEsp {
         BASES_SEEN.clear();
         TARGETS.clear();
         COUNTS.clear();
+        MEMORY.clear();
         timer = 0;
     }
 
@@ -100,12 +104,12 @@ public class ChestEsp {
         ChunkFinderConfig cfg = ChunkFinderConfig.INSTANCE;
         if (!cfg.chestEspEnabled || mc.world == null || mc.player == null) return;
         if (timer-- > 0) return;
-        timer = 5;
+        timer = 3;
 
-        List<Target> list = new ArrayList<>();
+        java.util.Set<Long> seenNow = new java.util.HashSet<>();
         Map<Kind, Integer> counts = new EnumMap<>(Kind.class);
 
-        int radius = Math.min((cfg.chestEspRange + 15) / 16, 64);
+        int radius = Math.min((cfg.chestEspRange + 15) / 16, 128);
         int pcx = mc.player.getChunkPos().x;
         int pcz = mc.player.getChunkPos().z;
 
@@ -127,13 +131,12 @@ public class ChestEsp {
                         stored++;
                         yTotal += p.getY();
                     }
-                    if (!enabled(k)) continue;
                     BlockState st = be.getCachedState();
                     VoxelShape shape = st.getOutlineShape(mc.world, p);
                     Box b = shape.isEmpty() ? new Box(p) : shape.getBoundingBox().offset(p);
-                    list.add(new Target(k, b.minX, b.minY, b.minZ, b.maxX, b.maxY, b.maxZ));
-                    counts.merge(k, 1, Integer::sum);
-                    if (list.size() >= 4000) break outer;
+                    seenNow.add(p.asLong());
+                    MEMORY.put(p.asLong(), new Target(k, b.minX, b.minY, b.minZ, b.maxX, b.maxY, b.maxZ));
+                    if (MEMORY.size() >= 6000) break outer;
                 }
                 if (cfg.alertBases && stored >= 4 && BASES_SEEN.add(chunk.getPos().toLong())) {
                     say(mc, "[Pharaoh] Base found at X " + (chunk.getPos().getStartX() + 8)
@@ -141,6 +144,25 @@ public class ChestEsp {
                         + " (" + stored + " storage/beds/spawners)");
                 }
             }
+        }
+
+        // forget remembered ones only when their chunk is loaded and the spot is now air
+        java.util.Iterator<Map.Entry<Long, Target>> it = MEMORY.entrySet().iterator();
+        while (it.hasNext()) {
+            Map.Entry<Long, Target> en = it.next();
+            if (seenNow.contains(en.getKey())) continue;
+            BlockPos bp = BlockPos.fromLong(en.getKey());
+            if (mc.world.getChunkManager().getWorldChunk(bp.getX() >> 4, bp.getZ() >> 4) != null
+                && mc.world.getBlockState(bp).isAir()) {
+                it.remove();
+            }
+        }
+        List<Target> list = new ArrayList<>();
+        for (Target t : MEMORY.values()) {
+            if (!enabled(t.kind())) continue;
+            list.add(t);
+            counts.merge(t.kind(), 1, Integer::sum);
+            if (list.size() >= 4000) break;
         }
 
         TARGETS.clear();

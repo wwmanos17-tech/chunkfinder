@@ -43,7 +43,11 @@ public class Freecam {
         } else {
             // Give the movement keys back to the real player.
             KeyBinding.updatePressedStates();
+            mc.chunkCullingEnabled = true;
         }
+        // Without cave culling the game draws every loaded chunk around the camera, not only what is "visible".
+        if (active) mc.chunkCullingEnabled = false;
+        mc.worldRenderer.scheduleTerrainUpdate();
         mc.player.sendMessage(Text.literal("Freecam: " + (active ? "ON" : "OFF")), true);
     }
 
@@ -55,6 +59,7 @@ public class Freecam {
             return;
         }
 
+        mc.chunkCullingEnabled = false;
         boolean canMove = mc.currentScreen == null;
 
         boolean forward = canMove && down(mc, mc.options.forwardKey);
@@ -75,7 +80,7 @@ public class Freecam {
         mc.options.sprintKey.setPressed(false);
 
         double speed = ChunkFinderConfig.INSTANCE.freecamSpeed * 0.1;
-        if (fast) speed *= 2.0;
+        if (fast) speed *= 3.0;
 
         double yawRad = Math.toRadians(yaw);
         double pitchRad = Math.toRadians(pitch);

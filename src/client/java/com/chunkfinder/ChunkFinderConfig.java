@@ -20,6 +20,8 @@ public class ChunkFinderConfig {
 
     // ---------------- Keys that switch a tool on/off (tool name -> GLFW key code) ----------------
     public java.util.Map<String, Integer> moduleKeys = new java.util.HashMap<>();
+    /** Tools starred in the menu. */
+    public java.util.List<String> favoriteModules = new java.util.ArrayList<>();
 
     // ---------------- Chunk Finder ----------------
     public boolean enabled = false;
@@ -95,6 +97,8 @@ public class ChunkFinderConfig {
     public boolean oreLapis = false;
     public boolean oreCopper = false;
     public boolean oreGilded = true;
+    public boolean oreNetherite = true;
+    public boolean alertRareOres = true;
     public boolean oreFill = true;
     public boolean oreTracers = false;
 
@@ -107,32 +111,6 @@ public class ChunkFinderConfig {
     /** If a player's rank tag in the tab list contains one of these, they count as staff. */
     public String[] staffKeywords = {"owner", "admin", "administrator", "mod", "moderator", "helper", "staff", "support", "manager", "developer", "dev", "builder", "trainee", "trial", "sr", "jr", "head", "founder", "ceo", "operator", "op", "guardian", "warden", "intern"};
 
-    // ---------------- Combat (for anarchy servers like 2b2t) ----------------
-    public boolean autoWTapEnabled = false;
-    /** How many ticks forward stays released (1..4). */
-    public int autoWTapTicks = 2;
-    public boolean autoCrystalEnabled = false;
-    public boolean autoCrystalPlace = true;
-    public boolean autoCrystalBreak = true;
-    public boolean autoCrystalObsidian = true;
-    /** Enemy must be within this many blocks (3..10). */
-    public int autoCrystalRange = 6;
-    /** Ticks between actions (1..10). */
-    public int autoCrystalDelay = 2;
-    /** Never break or place a crystal closer than this to you (0..6). */
-    public int autoCrystalSafeDistance = 3;
-
-    public boolean triggerBotEnabled = false;
-    public boolean triggerPlayersOnly = true;
-    /** Weapon charge needed before it hits, in percent (50..100). */
-    public int triggerCharge = 95;
-    public boolean autoAnchorEnabled = false;
-    /** Enemy must be within this many blocks (3..10). */
-    public int autoAnchorRange = 6;
-    /** Ticks between actions (1..10). */
-    public int autoAnchorDelay = 3;
-    /** Never place or set off an anchor closer than this to you (0..8). */
-    public int autoAnchorSafeDistance = 5;
 
     // ---------------- Spectator Alert ----------------
     public boolean spectatorEnabled = true;
@@ -187,6 +165,7 @@ public class ChunkFinderConfig {
 
     private void clamp() {
         if (moduleKeys == null) moduleKeys = new java.util.HashMap<>();
+        if (favoriteModules == null) favoriteModules = new java.util.ArrayList<>();
         sensitivity = clampInt(sensitivity, 1, 10);
         lightMin = clampInt(lightMin, 1, 20);
         if (susAlpha == 50) susAlpha = 25; // the first version used 50, now it is more see-through
@@ -200,19 +179,11 @@ public class ChunkFinderConfig {
         scanInterval = clampInt(scanInterval, 5, 200);
         renderY = clampInt(renderY, -64, 320);
         boxHeight = Math.max(0.1, Math.min(16, boxHeight));
-        freecamSpeed = clampInt(freecamSpeed, 1, 20);
-        playerEspRange = clampInt(playerEspRange, 16, 512);
-        chestEspRange = clampInt(chestEspRange, 16, 1024);
-        oreEspRange = clampInt(oreEspRange, 1, 8);
+        freecamSpeed = clampInt(freecamSpeed, 1, 60);
+        playerEspRange = clampInt(playerEspRange, 16, 1024);
+        chestEspRange = clampInt(chestEspRange, 16, 2048);
+        oreEspRange = clampInt(oreEspRange, 1, 12);
         spectatorRange = clampInt(spectatorRange, 4, 128);
-        autoWTapTicks = clampInt(autoWTapTicks, 1, 4);
-        autoCrystalRange = clampInt(autoCrystalRange, 3, 10);
-        autoCrystalDelay = clampInt(autoCrystalDelay, 1, 10);
-        autoCrystalSafeDistance = clampInt(autoCrystalSafeDistance, 0, 6);
-        triggerCharge = clampInt(triggerCharge, 50, 100);
-        autoAnchorRange = clampInt(autoAnchorRange, 3, 10);
-        autoAnchorDelay = clampInt(autoAnchorDelay, 1, 10);
-        autoAnchorSafeDistance = clampInt(autoAnchorSafeDistance, 0, 8);
         spectatorHeadPercent = clampInt(spectatorHeadPercent, 10, 100);
         spectatorPopupSeconds = clampInt(spectatorPopupSeconds, 1, 10);
         spectatorCooldownMinutes = clampInt(spectatorCooldownMinutes, 0, 120);

@@ -59,10 +59,6 @@ public class PharaohHud {
             if (c.chestEspEnabled) names.add("CHEST ESP");
             if (c.oreEspEnabled) names.add("ORE ESP");
             if (c.spectatorEnabled) names.add("SPECTATOR ALERT");
-            if (c.triggerBotEnabled) names.add("TRIGGER BOT");
-            if (c.autoWTapEnabled) names.add("AUTO W-TAP");
-            if (c.autoCrystalEnabled) names.add("AUTO CRYSTAL");
-            if (c.autoAnchorEnabled) names.add("AUTO ANCHOR");
             if (names.isEmpty()) return;
 
             names.sort((a, b) -> Integer.compare(mc.textRenderer.getWidth(b), mc.textRenderer.getWidth(a)));

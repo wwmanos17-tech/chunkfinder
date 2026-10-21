@@ -42,9 +42,6 @@ public class ChunkFinderClient implements ClientModInitializer {
         OreEsp.clear();
         SpectatorAlert.clear();
         StaffTracker.clear();
-        AutoWTap.clear();
-        AutoCrystal.clear();
-        AutoAnchor.clear();
     }
 
     @Override
@@ -61,7 +58,6 @@ public class ChunkFinderClient implements ClientModInitializer {
 
         // Freecam reads the keyboard and releases the real movement keys before the player's own tick.
         ClientTickEvents.START_CLIENT_TICK.register(Freecam::tick);
-        ClientTickEvents.START_CLIENT_TICK.register(AutoWTap::pre);
 
         ClientTickEvents.END_CLIENT_TICK.register(mc -> {
             while (freecamKey.wasPressed()) {
@@ -123,9 +119,5 @@ public class ChunkFinderClient implements ClientModInitializer {
         safe("OreEsp", () -> OreEsp.tick(mc));
         safe("SpectatorAlert", () -> SpectatorAlert.tick(mc));
         safe("StaffTracker", () -> StaffTracker.tick(mc));
-        safe("TriggerBot", () -> TriggerBot.tick(mc));
-        safe("AutoWTap", () -> AutoWTap.post(mc));
-        safe("AutoCrystal", () -> AutoCrystal.tick(mc));
-        safe("AutoAnchor", () -> AutoAnchor.tick(mc));
     }
 }
