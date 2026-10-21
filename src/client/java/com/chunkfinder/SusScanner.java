@@ -27,6 +27,8 @@ import java.util.concurrent.ConcurrentHashMap;
 public class SusScanner {
     public static final Map<ChunkPos, Integer> FOUND = new ConcurrentHashMap<>();
     private static final Map<ChunkPos, Integer> SCORES = new HashMap<>();
+    /** Heights where the clues were found, per chunk, so the chunk can be drawn as flat slabs at those heights. */
+    public static final Map<ChunkPos, int[]> LEVELS = new ConcurrentHashMap<>();
     private static final Set<ChunkPos> NOTIFIED = new HashSet<>();
 
     private static int age = 0;
@@ -65,7 +67,7 @@ public class SusScanner {
             STALE.addAll(SCORES.keySet());
         }
 
-        int radius = Math.min(cfg.simulationDistance, mc.options.getViewDistance().getValue());
+        int radius = mc.options.getViewDistance().getValue(); // every chunk the game has loaded, so flagged chunks show from anywhere
         int pcx = mc.player.getChunkPos().x;
         int pcz = mc.player.getChunkPos().z;
 
@@ -99,6 +101,7 @@ public class SusScanner {
 
     private static int score(MinecraftClient mc, WorldChunk chunk) {
         int score = 0;
+        java.util.List<Integer> ys = new java.util.ArrayList<>();
 
         // 1) blocks that do not belong in caves (only sections below about y 47)
         ChunkSection[] sections = chunk.getSectionArray();
@@ -110,7 +113,21 @@ public class SusScanner {
             if (s == null || s.isEmpty()) continue;
             if (s.hasAny(SusScanner::isSusBlock)) {
                 found = true;
-                break;
+                // note the height of the clues in this section
+                long sum = 0;
+                int n = 0;
+                for (int ly = 0; ly < 16; ly++) {
+                    if (sectionY * 16 + ly > 47) break;
+                    for (int lx = 0; lx < 16; lx++) {
+                        for (int lz = 0; lz < 16; lz++) {
+                            if (isSusBlock(s.getBlockState(lx, ly, lz))) {
+                                sum += sectionY * 16 + ly;
+                                n++;
+                            }
+                        }
+                    }
+                }
+                if (n > 0) ys.add((int) (sum / n));
             }
         }
         if (found) score += 4;
@@ -124,16 +141,37 @@ public class SusScanner {
                 || be instanceof HopperBlockEntity || be instanceof BedBlockEntity
                 || be instanceof DispenserBlockEntity || be instanceof BrewingStandBlockEntity) {
                 storage++;
+                ys.add(be.getPos().getY());
             }
         }
         score += Math.min(6, storage * 2);
 
         // 2) perfectly straight 1x2 tunnels
-        score += Math.min(6, tunnels(mc, chunk) * 3);
+        score += Math.min(6, tunnels(mc, chunk, ys) * 3);
+
+        LEVELS.put(chunk.getPos(), cluster(ys));
         return score;
     }
 
-    private static int tunnels(MinecraftClient mc, WorldChunk chunk) {
+    /** Merges heights that are close together and returns up to 5 slab heights. */
+    private static int[] cluster(java.util.List<Integer> ys) {
+        java.util.Collections.sort(ys);
+        java.util.List<int[]> groups = new java.util.ArrayList<>(); // {sum, count}
+        int lastY = Integer.MIN_VALUE;
+        for (int y : ys) {
+            if (groups.isEmpty() || y - lastY > 6) groups.add(new int[]{0, 0});
+            int[] g = groups.get(groups.size() - 1);
+            g[0] += y;
+            g[1]++;
+            lastY = y;
+        }
+        int n = Math.min(5, groups.size());
+        int[] out = new int[n];
+        for (int i = 0; i < n; i++) out[i] = groups.get(i)[0] / groups.get(i)[1];
+        return out;
+    }
+
+    private static int tunnels(MinecraftClient mc, WorldChunk chunk, java.util.List<Integer> ys) {
         int count = 0;
         int minY = Math.max(chunk.getBottomY() + 2, -58);
         int maxY = 40;
@@ -162,6 +200,7 @@ public class SusScanner {
                             if (run >= 12 && !counted) {
                                 count++;
                                 counted = true;
+                                ys.add(y);
                             }
                         } else {
                             run = 0;

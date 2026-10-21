@@ -33,13 +33,19 @@ public class ChunkFinderConfig {
     /** 1..10 - higher flags more suspicious-looking chunks. */
     public int susSensitivity = 5;
     public boolean tallColumns = true;
+    public boolean detectLight = true;
+    /** Underground lights needed in a chunk before it is flagged (1..20). */
+    public int lightMin = 3;
+    public int[] lightColor = {255, 230, 80};
     public boolean notify = true;
     public int scanInterval = 20;
     public int renderY = 64;
     public double boxHeight = 1.0;
     public int[] activityColor = {255, 80, 80};
     public int[] geodeColor = {170, 90, 255};
-    public int[] susColor = {255, 150, 0};
+    public int[] susColor = {255, 40, 40};
+    /** How solid the sus chunk columns are, in percent (5..95). */
+    public int susAlpha = 25;
 
     // ---------------- Freecam ----------------
     public boolean freecamEnabled = true;
@@ -88,6 +94,7 @@ public class ChunkFinderConfig {
     public boolean oreRedstone = false;
     public boolean oreLapis = false;
     public boolean oreCopper = false;
+    public boolean oreGilded = true;
     public boolean oreFill = true;
     public boolean oreTracers = false;
 
@@ -98,7 +105,7 @@ public class ChunkFinderConfig {
     /** Exact player names that always count as staff. Edit in config/chunkfinder.json. */
     public String[] staffNames = {};
     /** If a player's rank tag in the tab list contains one of these, they count as staff. */
-    public String[] staffKeywords = {"owner", "admin", "mod", "helper", "staff", "support", "manager", "developer"};
+    public String[] staffKeywords = {"owner", "admin", "administrator", "mod", "moderator", "helper", "staff", "support", "manager", "developer", "dev", "builder", "trainee", "trial", "sr", "jr", "head", "founder", "ceo", "operator", "op", "guardian", "warden", "intern"};
 
     // ---------------- Combat (for anarchy servers like 2b2t) ----------------
     public boolean autoWTapEnabled = false;
@@ -181,6 +188,13 @@ public class ChunkFinderConfig {
     private void clamp() {
         if (moduleKeys == null) moduleKeys = new java.util.HashMap<>();
         sensitivity = clampInt(sensitivity, 1, 10);
+        lightMin = clampInt(lightMin, 1, 20);
+        if (susAlpha == 50) susAlpha = 25; // the first version used 50, now it is more see-through
+        susAlpha = clampInt(susAlpha, 5, 95);
+        for (int[] col : new int[][]{activityColor, geodeColor, susColor, lightColor}) {
+            if (col != null) for (int i = 0; i < 3 && i < col.length; i++) col[i] = clampInt(col[i], 0, 255);
+        }
+        lightColor = fixColor(lightColor, new int[]{255, 230, 80});
         susSensitivity = clampInt(susSensitivity, 1, 10);
         simulationDistance = clampInt(simulationDistance, 2, 32);
         scanInterval = clampInt(scanInterval, 5, 200);
@@ -207,7 +221,9 @@ public class ChunkFinderConfig {
         if (spectatorMessage == null || spectatorMessage.equals("Good luck, Pharaoh player")) spectatorMessage = "Goodluck Pharaoh User, Be Careful";
         activityColor = fixColor(activityColor, new int[]{255, 80, 80});
         geodeColor = fixColor(geodeColor, new int[]{170, 90, 255});
-        susColor = fixColor(susColor, new int[]{255, 150, 0});
+        susColor = fixColor(susColor, new int[]{255, 40, 40});
+        // sus chunks used to be orange; they are solid red now
+        if (susColor[0] == 255 && susColor[1] == 150 && susColor[2] == 0) susColor = new int[]{255, 40, 40};
         playerColor = fixColor(playerColor, new int[]{80, 220, 255});
     }
 }

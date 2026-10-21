@@ -43,12 +43,29 @@ public class ChunkRenderer {
             }
         }
 
+        // sus chunks and light chunks: flat red (or your color) slabs at the heights where the clues are
+        if (cfg.detectLight) {
+            int[] l = cfg.lightColor;
+            for (ChunkPos pos : LightFinder.FOUND.keySet()) {
+                Integer y = LightFinder.LEVELS.get(pos);
+                double sy = y == null ? cfg.renderY : y;
+                double x1 = pos.getStartX();
+                double z1 = pos.getStartZ();
+                boxes.add(new EspRenderer.Box(x1, sy, z1, x1 + 16, sy + 0.02, z1 + 16, l[0] / 255f, l[1] / 255f, l[2] / 255f, 0.25f));
+            }
+        }
+
         if (cfg.detectSus) {
             int[] s = cfg.susColor;
             for (ChunkPos pos : SusScanner.FOUND.keySet()) {
-                double x1 = pos.getStartX() + 1.0;
-                double z1 = pos.getStartZ() + 1.0;
-                boxes.add(new EspRenderer.Box(x1, yb, z1, x1 + 14, yt, z1 + 14, s[0] / 255f, s[1] / 255f, s[2] / 255f, fill));
+                int[] levels = SusScanner.LEVELS.get(pos);
+                if (levels == null || levels.length == 0) levels = new int[]{cfg.renderY};
+                double x1 = pos.getStartX();
+                double z1 = pos.getStartZ();
+                for (int y : levels) {
+                    boxes.add(new EspRenderer.Box(x1, y, z1, x1 + 16, y + 0.02, z1 + 16,
+                        s[0] / 255f, s[1] / 255f, s[2] / 255f, cfg.susAlpha / 100f));
+                }
             }
         }
     }

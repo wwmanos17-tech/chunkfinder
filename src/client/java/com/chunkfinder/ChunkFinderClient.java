@@ -37,6 +37,7 @@ public class ChunkFinderClient implements ClientModInitializer {
     public static void clearAll() {
         ChunkScanner.clear();
         SusScanner.clear();
+        LightFinder.clear();
         ChestEsp.clear();
         OreEsp.clear();
         SpectatorAlert.clear();
@@ -118,6 +119,7 @@ public class ChunkFinderClient implements ClientModInitializer {
         safe("ChestEsp", () -> ChestEsp.tick(mc));
         safe("ChunkScanner", () -> ChunkScanner.tick(mc));
         safe("SusScanner", () -> SusScanner.tick(mc));
+        safe("LightFinder", () -> LightFinder.tick(mc));
         safe("OreEsp", () -> OreEsp.tick(mc));
         safe("SpectatorAlert", () -> SpectatorAlert.tick(mc));
         safe("StaffTracker", () -> StaffTracker.tick(mc));

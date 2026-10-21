@@ -115,6 +115,7 @@ public class ChestEsp {
                 WorldChunk chunk = mc.world.getChunkManager().getWorldChunk(cx, cz);
                 if (chunk == null) continue;
                 int stored = 0;
+                int yTotal = 0;
                 for (BlockEntity be : chunk.getBlockEntities().values()) {
                     Kind k = classify(be);
                     if (k == null) continue;
@@ -122,7 +123,10 @@ public class ChestEsp {
                     if (k == Kind.SPAWNER && cfg.alertSpawners && SPAWNERS_SEEN.add(p.asLong())) {
                         say(mc, "[Pharaoh] Spawner found at X " + p.getX() + ", Y " + p.getY() + ", Z " + p.getZ());
                     }
-                    if (k == Kind.CHEST || k == Kind.TRAPPED || k == Kind.BARREL || k == Kind.SHULKER || k == Kind.BED) stored++;
+                    if (k == Kind.CHEST || k == Kind.TRAPPED || k == Kind.BARREL || k == Kind.SHULKER || k == Kind.BED || k == Kind.SPAWNER) {
+                        stored++;
+                        yTotal += p.getY();
+                    }
                     if (!enabled(k)) continue;
                     BlockState st = be.getCachedState();
                     VoxelShape shape = st.getOutlineShape(mc.world, p);
@@ -132,8 +136,9 @@ public class ChestEsp {
                     if (list.size() >= 4000) break outer;
                 }
                 if (cfg.alertBases && stored >= 4 && BASES_SEEN.add(chunk.getPos().toLong())) {
-                    say(mc, "[Pharaoh] Possible base at X " + (chunk.getPos().getStartX() + 8)
-                        + ", Z " + (chunk.getPos().getStartZ() + 8) + " (" + stored + " storage/beds)");
+                    say(mc, "[Pharaoh] Base found at X " + (chunk.getPos().getStartX() + 8)
+                        + ", Y " + (yTotal / stored) + ", Z " + (chunk.getPos().getStartZ() + 8)
+                        + " (" + stored + " storage/beds/spawners)");
                 }
             }
         }

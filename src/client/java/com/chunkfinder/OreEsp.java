@@ -23,11 +23,11 @@ public class OreEsp {
     private record Hit(int x, int y, int z, int ore) {}
 
     public static final String[] NAMES = {
-        "Diamond", "Ancient Debris", "Emerald", "Gold", "Iron", "Coal", "Redstone", "Lapis", "Copper"
+        "Diamond", "Ancient Debris", "Emerald", "Gold", "Iron", "Coal", "Redstone", "Lapis", "Copper", "Gilded Blackstone"
     };
     private static final float[][] COLORS = {
         {80, 235, 255}, {255, 150, 80}, {60, 255, 100}, {255, 215, 0}, {235, 205, 185},
-        {170, 170, 170}, {255, 40, 40}, {60, 100, 255}, {255, 130, 60}
+        {170, 170, 170}, {255, 40, 40}, {60, 100, 255}, {255, 130, 60}, {255, 225, 60}
     };
 
     private static final Map<Block, Integer> ORE_INDEX = new HashMap<>();
@@ -42,6 +42,7 @@ public class OreEsp {
         reg(6, Blocks.REDSTONE_ORE, Blocks.DEEPSLATE_REDSTONE_ORE);
         reg(7, Blocks.LAPIS_ORE, Blocks.DEEPSLATE_LAPIS_ORE);
         reg(8, Blocks.COPPER_ORE, Blocks.DEEPSLATE_COPPER_ORE);
+        reg(9, Blocks.GILDED_BLACKSTONE);
     }
 
     private static void reg(int idx, Block... blocks) {
@@ -72,6 +73,7 @@ public class OreEsp {
             case 6 -> c.oreRedstone;
             case 7 -> c.oreLapis;
             case 8 -> c.oreCopper;
+            case 9 -> c.oreGilded;
             default -> false;
         };
     }

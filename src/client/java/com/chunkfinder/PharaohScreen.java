@@ -44,6 +44,7 @@ public class PharaohScreen extends Screen {
         net.minecraft.client.option.KeyBinding key;
         java.util.function.Supplier<net.minecraft.client.option.KeyBinding> keySupplier;
         String modKeyFor;
+        java.util.function.Supplier<int[]> swatch;
     }
 
     private static class Module {
@@ -113,6 +114,18 @@ public class PharaohScreen extends Screen {
         return s;
     }
 
+    private static void addColor(java.util.List<Setting> out, String name, java.util.function.Supplier<int[]> get) {
+        Setting sw = new Setting();
+        sw.label = name + " Color";
+        sw.swatch = get;
+        out.add(sw);
+        String[] ch = {"Red", "Green", "Blue"};
+        for (int i = 0; i < 3; i++) {
+            final int idx = i;
+            out.add(slider("  " + ch[i], 0, 255, "", () -> get.get()[idx], v -> get.get()[idx] = v));
+        }
+    }
+
     private static Module module(String name, BooleanSupplier on, Consumer<Boolean> setOn, Setting... settings) {
         Module m = new Module();
         m.name = name;
@@ -120,7 +133,7 @@ public class PharaohScreen extends Screen {
         m.setOn = setOn;
         boolean hasKey = false;
         for (Setting s : settings) if (s.keySupplier != null) hasKey = true;
-        if (!hasKey) {
+        if (!hasKey && !name.equals("Chunk Colors")) {
             Setting k = new Setting();
             k.label = "Toggle Key";
             k.modKeyFor = name;
@@ -174,6 +187,16 @@ public class PharaohScreen extends Screen {
         return net.minecraft.client.util.InputUtil.fromKeyCode(code, 0).getLocalizedText().getString();
     }
 
+    private static Setting[] chunkColorSettings(ChunkFinderConfig c) {
+        java.util.List<Setting> out = new java.util.ArrayList<>();
+        addColor(out, "Sus Chunk", () -> c.susColor);
+        out.add(slider("Sus Opacity", 5, 95, "%", () -> c.susAlpha, v -> c.susAlpha = v));
+        addColor(out, "Activity", () -> c.activityColor);
+        addColor(out, "Geode", () -> c.geodeColor);
+        addColor(out, "Light", () -> c.lightColor);
+        return out.toArray(new Setting[0]);
+    }
+
     private static void buildPanels() {
         if (!PANELS.isEmpty()) return;
         ChunkFinderConfig c = ChunkFinderConfig.INSTANCE;
@@ -186,10 +209,13 @@ public class PharaohScreen extends Screen {
                 toggle("Geodes", () -> c.detectGeodes, v -> c.detectGeodes = v),
                 toggle("Activity", () -> c.detectActivity, v -> c.detectActivity = v),
                 toggle("Sus Chunks", () -> c.detectSus, v -> c.detectSus = v),
+                toggle("Light Finder", () -> c.detectLight, v -> c.detectLight = v),
+                slider("Min Lights", 1, 20, "", () -> c.lightMin, v -> c.lightMin = v),
                 slider("Sus Sensitivity", 1, 10, "", () -> c.susSensitivity, v -> c.susSensitivity = v),
                 toggle("Tall Columns", () -> c.tallColumns, v -> c.tallColumns = v),
                 toggle("Chat Alerts", () -> c.notify, v -> c.notify = v),
                 slider("Render Height", -64, 320, "", () -> c.renderY, v -> c.renderY = v)),
+            module("Chunk Colors", () -> true, v -> { }, chunkColorSettings(c)),
             module("Player ESP", () -> c.playerEspEnabled, v -> c.playerEspEnabled = v,
                 slider("Range", 16, 512, "m", () -> c.playerEspRange, v -> c.playerEspRange = v),
                 toggle("Names", () -> c.playerEspNames, v -> c.playerEspNames = v),
@@ -225,6 +251,7 @@ public class PharaohScreen extends Screen {
                 toggle("Redstone", () -> c.oreRedstone, v -> c.oreRedstone = v),
                 toggle("Lapis", () -> c.oreLapis, v -> c.oreLapis = v),
                 toggle("Copper", () -> c.oreCopper, v -> c.oreCopper = v),
+                toggle("Gilded Blackstone", () -> c.oreGilded, v -> c.oreGilded = v),
                 toggle("Filled", () -> c.oreFill, v -> c.oreFill = v),
                 toggle("Tracers", () -> c.oreTracers, v -> c.oreTracers = v))));
 
@@ -267,7 +294,12 @@ public class PharaohScreen extends Screen {
                 })),
             module("Staff Tracker", () -> c.staffEnabled, v -> c.staffEnabled = v,
                 toggle("Show List", () -> c.staffShowList, v -> c.staffShowList = v),
-                toggle("Join / Leave Alerts", () -> c.staffAlerts, v -> c.staffAlerts = v))));
+                toggle("Join / Leave Alerts", () -> c.staffAlerts, v -> c.staffAlerts = v),
+                toggle("Print Tab Tags (click)", () -> false, v -> {
+                    net.minecraft.client.MinecraftClient mc = net.minecraft.client.MinecraftClient.getInstance();
+                    mc.setScreen(null);
+                    StaffTracker.printTags(mc);
+                }))));
 
         PANELS.add(panel("Client", 0xFFE0A526,
             module("Menu", () -> true, v -> { },
@@ -414,7 +446,12 @@ public class PharaohScreen extends Screen {
                 for (Setting s : m.settings) {
                     boolean sh = mx >= p.x && mx < p.x + PW && my >= y && my < y + ROW && my >= y0 && my < y0 + vh;
                     c.fill(p.x, y, p.x + PW, y + ROW, sh ? 0xF0101224 : deeper);
-                    if (s.modKeyFor != null) {
+                    if (s.swatch != null) {
+                        int[] sc = s.swatch.get();
+                        c.drawTextWithShadow(this.textRenderer, Text.literal(s.label), p.x + 10, y + 3, TEXT);
+                        round(c, p.x + PW - 30, y + 2, p.x + PW - 7, y + ROW - 2, 0xFFFFFFFF, 3);
+                        round(c, p.x + PW - 29, y + 3, p.x + PW - 8, y + ROW - 3, 0xFF000000 | (sc[0] << 16) | (sc[1] << 8) | sc[2], 2);
+                    } else if (s.modKeyFor != null) {
                         Integer kc = ChunkFinderConfig.INSTANCE.moduleKeys.get(s.modKeyFor);
                         String value = listening == s ? "press a key..." : keyName(kc == null ? 0 : kc);
                         int vw = this.textRenderer.getWidth(value);
