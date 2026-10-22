@@ -90,7 +90,7 @@ public class ChestEsp {
         }
         for (Map.Entry<Long, int[]> e : areas.entrySet()) {
             int[] a = e.getValue();
-            boolean big = a[0] >= 5 || a[1] >= 3 || a[2] >= 2 || a[3] >= 8;
+            boolean big = a[0] >= 6 || a[1] >= 8 || a[2] >= 1 || a[3] >= 12 || (a[0] >= 3 && a[1] >= 3);
             if (!big || !STASH_SEEN.add(e.getKey())) continue;
             StringBuilder sb = new StringBuilder();
             String[] names = {"shulker boxes", "ender chests", "spawners", "droppers"};

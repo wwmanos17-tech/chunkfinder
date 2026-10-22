@@ -18,6 +18,15 @@ public class ChunkFinderConfig {
     // ---------------- Module list (on-screen list of tools that are ON) ----------------
     /** Size of the menu in percent. */
     public int menuScale = 100;
+    public boolean nameProtect = true;
+    public String nameAlias = "Pharaoh";
+    public boolean regionMapEnabled = true;
+    public boolean fpsEnabled = true;
+    public int fpsX = 4;
+    public int fpsY = 64;
+    public int regionMapX = 4;
+    public int regionMapY = 90;
+    public int regionMapCell = 12;
     public boolean showModuleList = true;
 
     // ---------------- Keys that switch a tool on/off (tool name -> GLFW key code) ----------------
@@ -113,6 +122,8 @@ public class ChunkFinderConfig {
     public boolean staffEnabled = true;
     public boolean staffShowList = true;
     public boolean staffAlerts = true;
+    public int staffX = 4;
+    public int staffY = 4;
     /** Tab list team names that start with a number up to this one count as staff (0 = off). */
     public int staffMaxRank = 8;
     /** Exact player names that always count as staff. Edit in config/chunkfinder.json. */
@@ -198,6 +209,7 @@ public class ChunkFinderConfig {
         spectatorCooldownMinutes = clampInt(spectatorCooldownMinutes, 0, 120);
         staffMaxRank = clampInt(staffMaxRank, 0, 99);
         menuScale = clampInt(menuScale, 60, 200);
+        regionMapCell = clampInt(regionMapCell, 6, 30);
         susListCount = clampInt(susListCount, 1, 12);
         if (staffNames == null) staffNames = new String[0];
         if (staffKeywords == null) staffKeywords = new String[0];

@@ -26,6 +26,8 @@ public class StaffTracker {
 
     private static final Map<UUID, Staff> CURRENT = new LinkedHashMap<>();
     private static boolean primed = false;
+    /** Where the list was last drawn: x, y, width, height (used for dragging it). */
+    public static final int[] BOUNDS = new int[4];
     private static int timer = 0;
 
     public static void clear() {
@@ -153,9 +155,12 @@ public class StaffTracker {
 
     public static void render(DrawContext ctx, MinecraftClient mc) {
         ChunkFinderConfig cfg = ChunkFinderConfig.INSTANCE;
-        if (!cfg.staffEnabled || !cfg.staffShowList || CURRENT.isEmpty()) return;
+        boolean editing = mc.currentScreen instanceof PharaohScreen;
+        if (!cfg.staffEnabled || !cfg.staffShowList) return;
+        if (CURRENT.isEmpty() && !editing) return;
 
         List<Staff> list = new ArrayList<>(CURRENT.values());
+        if (list.isEmpty()) list.add(new Staff("Drag me", null));
         int shown = Math.min(list.size(), 8);
         int rowH = 14;
         int w = mc.textRenderer.getWidth("STAFF " + list.size());
@@ -163,9 +168,13 @@ public class StaffTracker {
         if (list.size() > shown) w = Math.max(w, mc.textRenderer.getWidth("+" + (list.size() - shown) + " more"));
         w += 10;
 
-        int x = 4;
-        int y = 4;
         int h = 14 + shown * rowH + (list.size() > shown ? rowH : 0) + 2;
+        int x = Math.max(0, Math.min(cfg.staffX, mc.getWindow().getScaledWidth() - w));
+        int y = Math.max(0, Math.min(cfg.staffY, mc.getWindow().getScaledHeight() - h));
+        BOUNDS[0] = x;
+        BOUNDS[1] = y;
+        BOUNDS[2] = w;
+        BOUNDS[3] = h;
         ctx.fill(x, y, x + w, y + h, 0xB0101018);
         ctx.fill(x, y, x + 2, y + h, 0xFFE0A526);
         ctx.drawTextWithShadow(mc.textRenderer, Text.literal("STAFF " + list.size()), x + 6, y + 3, 0xFF8A8A96);
