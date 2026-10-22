@@ -1,6 +1,9 @@
 package com.chunkfinder;
 
+import net.minecraft.block.Block;
 import net.minecraft.block.BlockState;
+import net.minecraft.block.Blocks;
+import net.minecraft.block.ShulkerBoxBlock;
 import net.minecraft.block.entity.*;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.entity.Entity;
@@ -10,6 +13,7 @@ import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Box;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.util.shape.VoxelShape;
+import net.minecraft.world.chunk.ChunkSection;
 import net.minecraft.world.chunk.WorldChunk;
 
 import java.util.ArrayList;
@@ -53,6 +57,58 @@ public class ChestEsp {
     public static final List<Target> TARGETS = new ArrayList<>();
     public static final Map<Kind, Integer> COUNTS = new EnumMap<>(Kind.class);
     private static int timer = 0;
+    private static int ticks = 0;
+    private static final Map<Long, Integer> BLOCK_SCANNED = new java.util.HashMap<>();
+
+    private static boolean storage(BlockState st) {
+        Block b = st.getBlock();
+        return b == Blocks.CHEST || b == Blocks.TRAPPED_CHEST || b == Blocks.ENDER_CHEST || b == Blocks.BARREL
+            || b == Blocks.SPAWNER || b == Blocks.BEACON || b instanceof ShulkerBoxBlock;
+    }
+
+    private static Kind blockKind(Block b) {
+        if (b == Blocks.CHEST) return Kind.CHEST;
+        if (b == Blocks.TRAPPED_CHEST) return Kind.TRAPPED;
+        if (b == Blocks.ENDER_CHEST) return Kind.ENDER;
+        if (b == Blocks.BARREL) return Kind.BARREL;
+        if (b == Blocks.SPAWNER) return Kind.SPAWNER;
+        if (b == Blocks.BEACON) return Kind.BEACON;
+        if (b instanceof ShulkerBoxBlock) return Kind.SHULKER;
+        return null;
+    }
+
+    /**
+     * Finds chests by looking at the blocks themselves, not only at block entities. The server
+     * often does not send block entities for far away or deep chunks, but the blocks are there.
+     */
+    private static void blockScan(MinecraftClient mc, WorldChunk chunk, ChunkFinderConfig cfg) {
+        ChunkSection[] sections = chunk.getSectionArray();
+        int bx = chunk.getPos().x * 16;
+        int bz = chunk.getPos().z * 16;
+        for (int i = 0; i < sections.length; i++) {
+            ChunkSection sec = sections[i];
+            if (sec == null || sec.isEmpty() || !sec.hasAny(ChestEsp::storage)) continue;
+            int y0 = (chunk.getBottomSectionCoord() + i) * 16;
+            for (int y = 0; y < 16; y++) {
+                for (int z = 0; z < 16; z++) {
+                    for (int x = 0; x < 16; x++) {
+                        BlockState st = sec.getBlockState(x, y, z);
+                        Kind k = blockKind(st.getBlock());
+                        if (k == null) continue;
+                        BlockPos p = new BlockPos(bx + x, y0 + y, bz + z);
+                        if (k == Kind.SPAWNER && cfg.alertSpawners && SPAWNERS_SEEN.add(p.asLong())) {
+                            say(mc, "[Pharaoh] Spawner found at X " + p.getX() + ", Y " + p.getY() + ", Z " + p.getZ());
+                        }
+                        if (MEMORY.containsKey(p.asLong())) continue;
+                        VoxelShape shape = st.getOutlineShape(mc.world, p);
+                        Box b = shape.isEmpty() ? new Box(p) : shape.getBoundingBox().offset(p);
+                        MEMORY.put(p.asLong(), new Target(k, b.minX, b.minY, b.minZ, b.maxX, b.maxY, b.maxZ));
+                        if (MEMORY.size() >= 6000) return;
+                    }
+                }
+            }
+        }
+    }
 
     /** Everything seen so far, so a chest the server stops sending later stays marked. */
     private static final Map<Long, Target> MEMORY = new java.util.LinkedHashMap<>();
@@ -70,7 +126,9 @@ public class ChestEsp {
         TARGETS.clear();
         COUNTS.clear();
         MEMORY.clear();
+        BLOCK_SCANNED.clear();
         timer = 0;
+        ticks = 0;
     }
 
     private static boolean enabled(Kind k) {
@@ -105,6 +163,8 @@ public class ChestEsp {
         if (!cfg.chestEspEnabled || mc.world == null || mc.player == null) return;
         if (timer-- > 0) return;
         timer = 3;
+        ticks += 3;
+        int scanBudget = 6;
 
         java.util.Set<Long> seenNow = new java.util.HashSet<>();
         Map<Kind, Integer> counts = new EnumMap<>(Kind.class);
@@ -118,17 +178,29 @@ public class ChestEsp {
             for (int cz = pcz - radius; cz <= pcz + radius; cz++) {
                 WorldChunk chunk = mc.world.getChunkManager().getWorldChunk(cx, cz);
                 if (chunk == null) continue;
+                if (scanBudget > 0) {
+                    Integer last = BLOCK_SCANNED.get(chunk.getPos().toLong());
+                    if (last == null || ticks - last > 400) {
+                        BLOCK_SCANNED.put(chunk.getPos().toLong(), ticks);
+                        blockScan(mc, chunk, cfg);
+                        scanBudget--;
+                    }
+                }
                 int stored = 0;
+                int spawners = 0;
                 int yTotal = 0;
                 for (BlockEntity be : chunk.getBlockEntities().values()) {
                     Kind k = classify(be);
                     if (k == null) continue;
                     BlockPos p = be.getPos();
+                    // leftover data for a block that is gone (looted or broken) is ignored
+                    if (mc.world.getBlockState(p).getBlock() != be.getCachedState().getBlock()) continue;
                     if (k == Kind.SPAWNER && cfg.alertSpawners && SPAWNERS_SEEN.add(p.asLong())) {
                         say(mc, "[Pharaoh] Spawner found at X " + p.getX() + ", Y " + p.getY() + ", Z " + p.getZ());
                     }
-                    if (k == Kind.CHEST || k == Kind.TRAPPED || k == Kind.BARREL || k == Kind.SHULKER || k == Kind.BED || k == Kind.SPAWNER) {
+                    if (k == Kind.CHEST || k == Kind.TRAPPED || k == Kind.BARREL || k == Kind.SHULKER || k == Kind.SPAWNER) {
                         stored++;
+                        if (k == Kind.SPAWNER) spawners++;
                         yTotal += p.getY();
                     }
                     BlockState st = be.getCachedState();
@@ -138,10 +210,12 @@ public class ChestEsp {
                     MEMORY.put(p.asLong(), new Target(k, b.minX, b.minY, b.minZ, b.maxX, b.maxY, b.maxZ));
                     if (MEMORY.size() >= 6000) break outer;
                 }
-                if (cfg.alertBases && stored >= 4 && BASES_SEEN.add(chunk.getPos().toLong())) {
-                    say(mc, "[Pharaoh] Base found at X " + (chunk.getPos().getStartX() + 8)
+                // one alert per 4x4 chunk area, and only when there is a real pile of storage
+                long region = ((long) (chunk.getPos().x >> 2) << 32) ^ (chunk.getPos().z >> 2 & 0xFFFFFFFFL);
+                if (cfg.alertBases && stored >= 6 && BASES_SEEN.add(region)) {
+                    say(mc, "[Pharaoh] Base found near X " + (chunk.getPos().getStartX() + 8)
                         + ", Y " + (yTotal / stored) + ", Z " + (chunk.getPos().getStartZ() + 8)
-                        + " (" + stored + " storage/beds/spawners)");
+                        + " (" + stored + " containers" + (spawners > 0 ? ", " + spawners + " spawners" : "") + ")");
                 }
             }
         }

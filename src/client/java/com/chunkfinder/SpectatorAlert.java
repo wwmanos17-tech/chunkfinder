@@ -121,14 +121,24 @@ public class SpectatorAlert {
             int overlayAlpha = (int) (170 * fade);
             ctx.fill(0, 0, w, h, (overlayAlpha << 24));
 
-            // big head that zooms in fast, then keeps growing slowly
-            float grow = 0.55f + 0.45f * in + 0.12f * Math.min(1f, t / popup);
-            int size = (int) (h * 0.9f * (cfg.spectatorHeadPercent / 100f) * Math.min(grow, 1.1f));
+            // like the elder guardian curse: starts small, swells to full size in the middle, shrinks away
+            float p = Math.min(1f, t / popup);
+            float pulse = 0.1f + 0.9f * (float) Math.sin(Math.PI * p);
+            int size = (int) (h * 0.9f * (cfg.spectatorHeadPercent / 100f) * pulse);
+            size = Math.max(size, 2);
             int x = (w - size) / 2;
             int y = (h - size) / 2;
 
             if (shownSkin != null) {
-                PlayerSkinDrawer.draw(ctx, shownSkin, x, y, size);
+                // the head swings and turns a little, like the guardian model does
+                float roll = 14f * (float) Math.sin(t * 5.0);
+                float turn = 0.62f + 0.38f * (float) Math.cos(t * 3.5);
+                ctx.getMatrices().push();
+                ctx.getMatrices().translate(w / 2f, h / 2f, 0f);
+                ctx.getMatrices().multiply(net.minecraft.util.math.RotationAxis.POSITIVE_Z.rotationDegrees(roll));
+                ctx.getMatrices().scale(turn, 1f, 1f);
+                PlayerSkinDrawer.draw(ctx, shownSkin, -size / 2, -size / 2, size);
+                ctx.getMatrices().pop();
             }
             ctx.drawCenteredTextWithShadow(mc.textRenderer, Text.literal(shownName), w / 2, h - 20, 0xFFFFE680);
         } else if (t < popup + WATCH_SECONDS) {

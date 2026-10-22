@@ -3,7 +3,7 @@ package com.chunkfinder;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
+import net.minecraft.util.Identifier;
 import org.lwjgl.glfw.GLFW;
 
 import java.util.ArrayList;
@@ -19,6 +19,25 @@ import java.util.function.IntSupplier;
  */
 public class PharaohScreen extends Screen {
     private static final int ROW = 15;
+
+    private static final Identifier UI_FONT = Identifier.of("chunkfinder", "ui");
+    private static final Identifier BOLD_FONT = Identifier.of("chunkfinder", "ui_bold");
+
+    /** Smooth font (Poppins) so the menu text isn't blocky. */
+    private static net.minecraft.text.MutableText ui(String s) {
+        return Text.literal(s).styled(st -> st.withFont(UI_FONT));
+    }
+
+    private int uw(String s) {
+        return this.textRenderer.getWidth(ui(s));
+    }
+
+    private String trim(String s, int max) {
+        if (uw(s) <= max) return s;
+        String t = s;
+        while (!t.isEmpty() && uw(t + "..") > max) t = t.substring(0, t.length() - 1);
+        return t + "..";
+    }
 
     private static final int ACCENT = 0xFFE0A526;
     private static final int TEXT = 0xFFE6E6E6;
@@ -73,9 +92,10 @@ public class PharaohScreen extends Screen {
     private String search = "";
     private boolean searchFocus = false;
     private int wx, wy, ww, wh;
+    private int d = 1, vw = 0, vh = 0;
 
     public PharaohScreen(Screen parent) {
-        super(Text.literal("Pharaoh"));
+        super(Text.of("Pharaoh"));
         this.parent = parent;
     }
 
@@ -190,7 +210,7 @@ public class PharaohScreen extends Screen {
                     m.setOn.accept(now);
                     ChunkFinderConfig.save();
                     ChunkFinderClient.clearAll();
-                    mc.player.sendMessage(Text.literal(m.name + ": " + (now ? "ON" : "OFF")), true);
+                    mc.player.sendMessage(ui(m.name + ": " + (now ? "ON" : "OFF")), true);
                 }
             }
         }
@@ -287,6 +307,7 @@ public class PharaohScreen extends Screen {
                 })),
             module("Staff Tracker", () -> c.staffEnabled, v -> c.staffEnabled = v,
                 toggle("Show List", () -> c.staffShowList, v -> c.staffShowList = v),
+                slider("Staff Rank No. (max)", 0, 20, "", () -> c.staffMaxRank, v -> c.staffMaxRank = v),
                 toggle("Join / Leave Alerts", () -> c.staffAlerts, v -> c.staffAlerts = v),
                 toggle("Print Tab Tags (click)", () -> false, v -> {
                     net.minecraft.client.MinecraftClient mc = net.minecraft.client.MinecraftClient.getInstance();
@@ -364,6 +385,17 @@ public class PharaohScreen extends Screen {
         return k.keySupplier.get().getBoundKeyLocalizedText().getString();
     }
 
+    /** Puts a key setting back to its default: no key for tool keys, J / K / F4 for the main ones. */
+    private static void resetKey(Setting k) {
+        if (k.modKeyFor != null) {
+            ChunkFinderConfig.INSTANCE.moduleKeys.remove(k.modKeyFor);
+            ChunkFinderConfig.save();
+        } else if (k.keySupplier != null) {
+            net.minecraft.client.option.KeyBinding kb = k.keySupplier.get();
+            ChunkFinderClient.rebind(kb, kb.getDefaultKey().getCode());
+        }
+    }
+
     private static boolean isFavorite(Module m) {
         return ChunkFinderConfig.INSTANCE.favoriteModules.contains(m.name);
     }
@@ -437,10 +469,15 @@ public class PharaohScreen extends Screen {
     @Override
     protected void init() {
         buildPanels();
-        ww = Math.min(this.width - 16, 580);
-        wh = Math.min(this.height - 16, 330);
-        wx = (this.width - ww) / 2;
-        wy = (this.height - wh) / 2;
+        // Draw in finer units: one unit is about one real screen pixel per font pixel, so shapes and text are crisp.
+        int s = this.client != null ? (int) Math.round(this.client.getWindow().getScaleFactor()) : 2;
+        d = Math.max(1, s <= 3 ? s : s / 2);
+        vw = this.width * d;
+        vh = this.height * d;
+        ww = Math.min(vw - 24, 680);
+        wh = Math.min(vh - 24, 380);
+        wx = (vw - ww) / 2;
+        wy = (vh - wh) / 2;
     }
 
     // ---------------------------------------------------------------- drawing
@@ -448,7 +485,13 @@ public class PharaohScreen extends Screen {
     @Override
     public void render(DrawContext c, int mx, int my, float delta) {
         try {
-            renderInner(c, mx, my, delta);
+            c.getMatrices().push();
+            try {
+                c.getMatrices().scale(1f / d, 1f / d, 1f);
+                renderInner(c, mx * d, my * d, delta);
+            } finally {
+                c.getMatrices().pop();
+            }
         } catch (Throwable t) {
             ChunkFinderClient.LOGGER.error("Menu drawing failed, closing the menu", t);
             try { c.disableScissor(); } catch (Throwable ignored) { }
@@ -458,9 +501,9 @@ public class PharaohScreen extends Screen {
 
     private int tabX(int i) {
         int total = 0;
-        for (String t : TABS) total += this.textRenderer.getWidth(t) + 26;
+        for (String t : TABS) total += uw(t) + 26;
         int x = wx + (ww - total) / 2;
-        for (int k = 0; k < i; k++) x += this.textRenderer.getWidth(TABS[k]) + 26;
+        for (int k = 0; k < i; k++) x += uw(TABS[k]) + 26;
         return x;
     }
 
@@ -469,7 +512,7 @@ public class PharaohScreen extends Screen {
     private void renderInner(DrawContext c, int mx, int my, float delta) {
         ChunkFinderConfig cfg = ChunkFinderConfig.INSTANCE;
         hits.clear();
-        c.fill(0, 0, this.width, this.height, 0x99040612);
+        c.fill(0, 0, vw, vh, 0x99040612);
 
         // window
         round(c, wx - 1, wy - 1, wx + ww + 1, wy + wh + 1, 0xFF1B2547, 7);
@@ -479,21 +522,21 @@ public class PharaohScreen extends Screen {
 
         // logo and name
         LogoRenderer.draw(c, wx + 10, wy + 4);
-        c.drawTextWithShadow(this.textRenderer, Text.literal("PHARAOH").formatted(Formatting.BOLD), wx + 48, wy + 16, ACCENT);
+        c.drawTextWithShadow(this.textRenderer, ui("PHARAOH").styled(st -> st.withFont(BOLD_FONT)), wx + 48, wy + 16, ACCENT);
 
         // tabs
         for (int i = 0; i < TABS.length; i++) {
             int tx = tabX(i);
-            int tw = this.textRenderer.getWidth(TABS[i]) + 22;
+            int tw = uw(TABS[i]) + 22;
             if (i == tab) round(c, tx, wy + 9, tx + tw, wy + 31, 0xFF121A33, 5);
-            c.drawTextWithShadow(this.textRenderer, Text.literal(TABS[i]), tx + 11, wy + 16, i == tab ? TEXT : DIM);
+            c.drawTextWithShadow(this.textRenderer, ui(TABS[i]), tx + 11, wy + 16, i == tab ? TEXT : DIM);
         }
         boolean overX = mx >= wx + ww - 26 && mx < wx + ww - 6 && my >= wy + 8 && my < wy + 32;
-        c.drawTextWithShadow(this.textRenderer, Text.literal("x"), wx + ww - 17, wy + 16, overX ? 0xFFFFFFFF : DIM);
+        c.drawTextWithShadow(this.textRenderer, ui("x"), wx + ww - 17, wy + 16, overX ? 0xFFFFFFFF : DIM);
 
         // sidebar: categories
         List<Panel> cats = categories();
-        c.drawTextWithShadow(this.textRenderer, Text.literal("MODULES"), wx + 14, wy + HEADER + 12, DIM);
+        c.drawTextWithShadow(this.textRenderer, ui("MODULES"), wx + 14, wy + HEADER + 12, DIM);
         for (int i = 0; i <= cats.size(); i++) {
             int iy = wy + HEADER + 28 + i * 22;
             boolean sel = tab == 0 && category == i;
@@ -505,7 +548,7 @@ public class PharaohScreen extends Screen {
                 round(c, wx + 8, iy, wx + SIDE - 8, iy + 20, 0xFF0D1328, 5);
             }
             String label = i == 0 ? "Overview" : cats.get(i - 1).title;
-            c.drawTextWithShadow(this.textRenderer, Text.literal(label), wx + 18, iy + 6, sel ? TEXT : (hov ? TEXT : DIM));
+            c.drawTextWithShadow(this.textRenderer, ui(label), wx + 18, iy + 6, sel ? TEXT : (hov ? TEXT : DIM));
         }
 
         // sidebar: footer
@@ -518,15 +561,15 @@ public class PharaohScreen extends Screen {
                 if (m.on.getAsBoolean()) active++;
             }
         }
-        c.drawTextWithShadow(this.textRenderer, Text.literal("PHARAOH CLIENT"), wx + 14, wy + wh - 40, DIM);
-        c.drawTextWithShadow(this.textRenderer, Text.literal("Fabric 1.21.4"), wx + 14, wy + wh - 28, TEXT);
-        c.drawTextWithShadow(this.textRenderer, Text.literal(active + " / " + total + " active"), wx + 14, wy + wh - 16, DIM);
+        c.drawTextWithShadow(this.textRenderer, ui("PHARAOH CLIENT"), wx + 14, wy + wh - 40, DIM);
+        c.drawTextWithShadow(this.textRenderer, ui("Fabric 1.21.4"), wx + 14, wy + wh - 28, TEXT);
+        c.drawTextWithShadow(this.textRenderer, ui(active + " / " + total + " active"), wx + 14, wy + wh - 16, DIM);
 
         // content header
         int x0 = wx + SIDE + 12;
         int cw = ww - SIDE - 24;
-        c.drawTextWithShadow(this.textRenderer, Text.literal(heading()).formatted(Formatting.BOLD), x0, wy + HEADER + 10, TEXT);
-        c.drawTextWithShadow(this.textRenderer, Text.literal(subheading()), x0, wy + HEADER + 23, DIM);
+        c.drawTextWithShadow(this.textRenderer, ui(heading()).styled(st -> st.withFont(BOLD_FONT)), x0, wy + HEADER + 10, TEXT);
+        c.drawTextWithShadow(this.textRenderer, ui(subheading()), x0, wy + HEADER + 23, DIM);
 
         // search box
         int sbw = Math.min(150, cw / 2);
@@ -534,8 +577,8 @@ public class PharaohScreen extends Screen {
         int sby = wy + HEADER + 9;
         round(c, sbx - (searchFocus ? 1 : 0), sby - (searchFocus ? 1 : 0), sbx + sbw + (searchFocus ? 1 : 0), sby + 18 + (searchFocus ? 1 : 0), searchFocus ? ACCENT : 0xFF161E38, 5);
         round(c, sbx, sby, sbx + sbw, sby + 18, 0xFF0C1226, 5);
-        String shownSearch = search.isEmpty() && !searchFocus ? "Search modules..." : this.textRenderer.trimToWidth(search + (searchFocus && (System.currentTimeMillis() / 500) % 2 == 0 ? "_" : ""), sbw - 12);
-        c.drawTextWithShadow(this.textRenderer, Text.literal(shownSearch), sbx + 6, sby + 5, search.isEmpty() && !searchFocus ? DIM : TEXT);
+        String shownSearch = search.isEmpty() && !searchFocus ? "Search modules..." : trim(search + (searchFocus && (System.currentTimeMillis() / 500) % 2 == 0 ? "_" : ""), sbw - 12);
+        c.drawTextWithShadow(this.textRenderer, ui(shownSearch), sbx + 6, sby + 5, search.isEmpty() && !searchFocus ? DIM : TEXT);
 
         // module list
         int top = wy + HEADER + 40;
@@ -564,13 +607,13 @@ public class PharaohScreen extends Screen {
         c.disableScissor();
         if (mods.isEmpty()) {
             String msg = tab == 1 ? "No favorites yet. Click the star on a module." : "No modules found.";
-            c.drawTextWithShadow(this.textRenderer, Text.literal(msg), x0, top + 6, DIM);
+            c.drawTextWithShadow(this.textRenderer, ui(msg), x0, top + 6, DIM);
         }
         int maxScroll = Math.max(0, contentH - (bottom - top));
         scroll = Math.max(0, Math.min(scroll, maxScroll));
 
         c.drawTextWithShadow(this.textRenderer,
-            Text.literal("Icon: \"Pharaoh\" by Delapouite, game-icons.net, CC BY 3.0   |   Middle click a module to set its key"),
+            ui("Icon: \"Pharaoh\" by Delapouite, game-icons.net, CC BY 3.0   |   Click a Key box, then press a key. Right click or Backspace resets it"),
             x0, wy + wh - 12, 0xFF444C66);
     }
 
@@ -600,7 +643,7 @@ public class PharaohScreen extends Screen {
         round(c, x + 1, y + 1, x + w - 1, y + h - 1, hov ? 0xFF111A30 : 0xFF0B1224, 6);
         if (on) round(c, x, y + 12, x + 3, y + CARD - 12, col, 1);
 
-        c.drawTextWithShadow(this.textRenderer, Text.literal(m.name).formatted(Formatting.BOLD), x + 14, y + 8, 0xFFFFFFFF);
+        c.drawTextWithShadow(this.textRenderer, ui(m.name).styled(st -> st.withFont(BOLD_FONT)), x + 14, y + 8, 0xFFFFFFFF);
 
         // key box
         Setting ks = keySetting(m);
@@ -609,13 +652,13 @@ public class PharaohScreen extends Screen {
         else kt = "Key: " + currentKey(m);
         int kw = Math.min(w - 100, 110);
         round(c, x + 14, y + 25, x + 14 + kw, y + 40, 0xFF060A14, 4);
-        c.drawTextWithShadow(this.textRenderer, Text.literal(this.textRenderer.trimToWidth(kt, kw - 10)), x + 19, y + 29,
+        c.drawTextWithShadow(this.textRenderer, ui(trim(kt, kw - 10)), x + 19, y + 29,
             (ks != null && listening == ks) ? 0xFFFFFFFF : (currentKey(m).equals("None") ? 0xFFB4B8C8 : 0xFFE8C170));
         if (ks != null) addHit(5, m, ks, x + 14, y + 25, kw, 15, top, bottom);
 
         // + (settings), star, switch
         if (!m.settings.isEmpty()) {
-            c.drawTextWithShadow(this.textRenderer, Text.literal(m.open ? "-" : "+"), x + w - 76, y + 10, bright);
+            c.drawTextWithShadow(this.textRenderer, ui(m.open ? "-" : "+"), x + w - 76, y + 10, bright);
             addHit(1, m, null, x + w - 84, y + 4, 18, 20, top, bottom);
         }
         boolean fav = isFavorite(m);
@@ -635,7 +678,7 @@ public class PharaohScreen extends Screen {
                 int lx = x + 14;
                 if (s.swatch != null) {
                     int[] sc = s.swatch.get();
-                    c.drawTextWithShadow(this.textRenderer, Text.literal(s.label), lx, sy + 3, TEXT);
+                    c.drawTextWithShadow(this.textRenderer, ui(s.label), lx, sy + 3, TEXT);
                     round(c, x + w - 34, sy + 2, x + w - 10, sy + ROW - 2, 0xFFFFFFFF, 3);
                     round(c, x + w - 33, sy + 3, x + w - 11, sy + ROW - 3, 0xFF000000 | (sc[0] << 16) | (sc[1] << 8) | sc[2], 2);
                 } else if (s.modKeyFor != null || s.keySupplier != null) {
@@ -648,20 +691,20 @@ public class PharaohScreen extends Screen {
                     } else {
                         value = s.keySupplier.get().getBoundKeyLocalizedText().getString();
                     }
-                    int vw = this.textRenderer.getWidth(value);
-                    c.drawTextWithShadow(this.textRenderer, Text.literal(s.modKeyFor != null ? "Toggle Key" : s.label), lx, sy + 3, TEXT);
-                    c.drawTextWithShadow(this.textRenderer, Text.literal(value), x + w - vw - 12, sy + 3, listening == s ? 0xFFFFFFFF : bright);
+                    int vw = uw(value);
+                    c.drawTextWithShadow(this.textRenderer, ui(s.modKeyFor != null ? "Toggle Key" : s.label), lx, sy + 3, TEXT);
+                    c.drawTextWithShadow(this.textRenderer, ui(value), x + w - vw - 12, sy + 3, listening == s ? 0xFFFFFFFF : bright);
                 } else if (s.slider) {
                     String value = s.iget.getAsInt() + s.suffix;
-                    int vw = this.textRenderer.getWidth(value);
-                    c.drawTextWithShadow(this.textRenderer, Text.literal(this.textRenderer.trimToWidth(s.label, w - vw - 40)), lx, sy + 2, TEXT);
-                    c.drawTextWithShadow(this.textRenderer, Text.literal(value), x + w - vw - 12, sy + 2, bright);
+                    int vw = uw(value);
+                    c.drawTextWithShadow(this.textRenderer, ui(trim(s.label, w - vw - 40)), lx, sy + 2, TEXT);
+                    c.drawTextWithShadow(this.textRenderer, ui(value), x + w - vw - 12, sy + 2, bright);
                     c.fill(x + 12, sy + ROW - 3, x + w - 12, sy + ROW - 1, 0xFF1C2238);
                     float ratio = (s.iget.getAsInt() - s.min) / (float) (s.max - s.min);
                     c.fill(x + 12, sy + ROW - 3, x + 12 + Math.round((w - 24) * ratio), sy + ROW - 1, col);
                 } else {
                     boolean sOn = s.get.getAsBoolean();
-                    c.drawTextWithShadow(this.textRenderer, Text.literal(this.textRenderer.trimToWidth(s.label, w - 60)), lx, sy + 3, sOn ? TEXT : DIM);
+                    c.drawTextWithShadow(this.textRenderer, ui(trim(s.label, w - 60)), lx, sy + 3, sOn ? TEXT : DIM);
                     round(c, x + w - 32, sy + 3, x + w - 14, sy + 12, sOn ? col : 0xFF1C2238, 4);
                     int kx = sOn ? x + w - 23 : x + w - 30;
                     round(c, kx, sy + 5, kx + 5, sy + 10, 0xFFFFFFFF, 2);
@@ -699,7 +742,7 @@ public class PharaohScreen extends Screen {
     @Override
     public boolean mouseClicked(double mx, double my, int button) {
         try {
-            return clickInner(mx, my, button);
+            return clickInner(mx * d, my * d, button);
         } catch (Throwable t) {
             ChunkFinderClient.LOGGER.error("Menu click failed", t);
             return true;
@@ -716,7 +759,7 @@ public class PharaohScreen extends Screen {
             // tabs
             for (int i = 0; i < TABS.length; i++) {
                 int tx = tabX(i);
-                int tw = this.textRenderer.getWidth(TABS[i]) + 22;
+                int tw = uw(TABS[i]) + 22;
                 if (mx >= tx && mx < tx + tw && my >= wy + 9 && my < wy + 31) {
                     tab = i;
                     scroll = 0;
@@ -763,6 +806,7 @@ public class PharaohScreen extends Screen {
             }
             case 5 -> {
                 if (button == 0) listening = (listening == h.s()) ? null : h.s();
+                else if (button == 1) { listening = null; resetKey(h.s()); }
             }
             case 3 -> {
                 if (button == 0) {
@@ -779,8 +823,13 @@ public class PharaohScreen extends Screen {
                 }
             }
             default -> {
-                if (button != 0) return true;
                 Setting s = h.s();
+                if (button == 1 && (s.keySupplier != null || s.modKeyFor != null)) {
+                    listening = null;
+                    resetKey(s);
+                    return true;
+                }
+                if (button != 0) return true;
                 if (s.keySupplier != null || s.modKeyFor != null) {
                     listening = (listening == s) ? null : s;
                 } else if (s.slider) {
@@ -799,7 +848,7 @@ public class PharaohScreen extends Screen {
     public boolean mouseDragged(double mx, double my, int button, double dx, double dy) {
         try {
             if (dragSlider != null) {
-                setSlider(dragSlider, mx);
+                setSlider(dragSlider, mx * d);
                 return true;
             }
         } catch (Throwable t) {
@@ -820,9 +869,11 @@ public class PharaohScreen extends Screen {
     }
 
     @Override
-    public boolean mouseScrolled(double mx, double my, double horizontal, double vertical) {
+    public boolean mouseScrolled(double rawX, double rawY, double horizontal, double vertical) {
+        double mx = rawX * d;
+        double my = rawY * d;
         if (mx >= wx + SIDE && mx < wx + ww && my >= wy + HEADER && my < wy + wh) {
-            scroll -= (int) (vertical * 22);
+            scroll -= (int) (vertical * 22 * d);
             if (scroll < 0) scroll = 0;
             return true;
         }
@@ -844,15 +895,15 @@ public class PharaohScreen extends Screen {
         if (listening != null) {
             Setting s = listening;
             listening = null;
-            if (s.modKeyFor != null) {
-                if (keyCode == GLFW.GLFW_KEY_BACKSPACE || keyCode == GLFW.GLFW_KEY_DELETE) {
-                    ChunkFinderConfig.INSTANCE.moduleKeys.remove(s.modKeyFor);
-                } else if (keyCode != GLFW.GLFW_KEY_ESCAPE) {
-                    ChunkFinderConfig.INSTANCE.moduleKeys.put(s.modKeyFor, keyCode);
-                }
-                ChunkFinderConfig.save();
+            if (keyCode == GLFW.GLFW_KEY_BACKSPACE || keyCode == GLFW.GLFW_KEY_DELETE) {
+                resetKey(s);
             } else if (keyCode != GLFW.GLFW_KEY_ESCAPE) {
-                ChunkFinderClient.rebind(s.keySupplier.get(), keyCode);
+                if (s.modKeyFor != null) {
+                    ChunkFinderConfig.INSTANCE.moduleKeys.put(s.modKeyFor, keyCode);
+                    ChunkFinderConfig.save();
+                } else {
+                    ChunkFinderClient.rebind(s.keySupplier.get(), keyCode);
+                }
             }
             return true;
         }

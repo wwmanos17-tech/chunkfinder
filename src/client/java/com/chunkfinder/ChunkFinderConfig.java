@@ -106,6 +106,8 @@ public class ChunkFinderConfig {
     public boolean staffEnabled = true;
     public boolean staffShowList = true;
     public boolean staffAlerts = true;
+    /** Tab list team names that start with a number up to this one count as staff (0 = off). */
+    public int staffMaxRank = 8;
     /** Exact player names that always count as staff. Edit in config/chunkfinder.json. */
     public String[] staffNames = {};
     /** If a player's rank tag in the tab list contains one of these, they count as staff. */
@@ -187,6 +189,7 @@ public class ChunkFinderConfig {
         spectatorHeadPercent = clampInt(spectatorHeadPercent, 10, 100);
         spectatorPopupSeconds = clampInt(spectatorPopupSeconds, 1, 10);
         spectatorCooldownMinutes = clampInt(spectatorCooldownMinutes, 0, 120);
+        staffMaxRank = clampInt(staffMaxRank, 0, 99);
         if (staffNames == null) staffNames = new String[0];
         if (staffKeywords == null) staffKeywords = new String[0];
         if (spectatorMessage == null || spectatorMessage.equals("Good luck, Pharaoh player")) spectatorMessage = "Goodluck Pharaoh User, Be Careful";

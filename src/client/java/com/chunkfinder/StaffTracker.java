@@ -70,6 +70,19 @@ public class StaffTracker {
         for (String n : cfg.staffNames) {
             if (n != null && n.trim().equalsIgnoreCase(name)) return true;
         }
+        // Donut-style tab list: team names look like "08-name-false"; the lower the number, the higher the rank
+        if (cfg.staffMaxRank > 0 && mc.world != null) {
+            Team team = mc.world.getScoreboard().getScoreHolderTeam(name);
+            if (team != null) {
+                String tn = team.getName();
+                int dash = tn.indexOf('-');
+                if (dash > 0 && dash <= 3) {
+                    try {
+                        if (Integer.parseInt(tn.substring(0, dash)) <= cfg.staffMaxRank) return true;
+                    } catch (NumberFormatException ignored) { }
+                }
+            }
+        }
         String t = tagOf(mc, e);
         for (String k : cfg.staffKeywords) {
             if (k != null && !k.isBlank() && hasWord(t, k.trim().toLowerCase(Locale.ROOT))) return true;
