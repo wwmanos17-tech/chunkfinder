@@ -4,6 +4,10 @@ import net.minecraft.block.BlockState;
 import net.minecraft.block.Blocks;
 import net.minecraft.block.entity.*;
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.gui.DrawContext;
+import net.minecraft.entity.passive.VillagerEntity;
+import net.minecraft.util.math.Box;
+import net.minecraft.world.Heightmap;
 import net.minecraft.text.Text;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.ChunkPos;
@@ -21,6 +25,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * Finds "sus" chunks: chunks that look like someone built or dug there.
  * Clues (Overworld only, underground only so villages are ignored):
  *  - blocks that never generate in caves (glass, ladders, doors, pistons, TNT ...)
+ *  - villagers underground (trading halls), not villagers standing on the surface
  *  - perfectly straight 1x2 tunnels, 12 or more blocks long, which look like pickaxe digging
  * Chunks are scored once and cached, a couple per tick, so it does not cause lag.
  */
@@ -146,6 +151,25 @@ public class SusScanner {
         }
         score += Math.min(6, storage * 2);
 
+        // 1c) villagers sitting underground: trading halls are bases now,
+        //     while village villagers stand on the surface and are ignored
+        int bx = chunk.getPos().getStartX();
+        int bz = chunk.getPos().getStartZ();
+        Box area = new Box(bx, mc.world.getBottomY(), bz, bx + 16, mc.world.getTopYInclusive() + 1, bz + 16);
+        int villagers = 0;
+        java.util.List<net.minecraft.entity.LivingEntity> folk = new java.util.ArrayList<>();
+        folk.addAll(mc.world.getEntitiesByClass(VillagerEntity.class, area, e -> true));
+        for (net.minecraft.entity.LivingEntity v : folk) {
+            int top = mc.world.getTopY(Heightmap.Type.WORLD_SURFACE, v.getBlockX(), v.getBlockZ());
+            if (v.getY() < top - 6) {
+                villagers++;
+                ys.add((int) v.getY());
+            }
+        }
+        if (villagers >= 1) score += 4;
+        if (villagers >= 3) score += 3;
+        if (villagers >= 6) score += 3;
+
         // 2) perfectly straight 1x2 tunnels
         score += Math.min(6, tunnels(mc, chunk, ys) * 3);
 
@@ -221,5 +245,50 @@ public class SusScanner {
         p.set(x, y, z);
         BlockState s = chunk.getBlockState(p);
         return !s.isAir() && s.getFluidState().isEmpty() && s.isSolidBlock(mc.world, p);
+    }
+
+    /** Small on-screen list of the strongest sus chunks, nearest to your position, with distance and coordinates. */
+    public static void renderList(DrawContext ctx, MinecraftClient mc) {
+        ChunkFinderConfig cfg = ChunkFinderConfig.INSTANCE;
+        if (!cfg.enabled || !cfg.detectSus || !cfg.susList || FOUND.isEmpty()) return;
+        double px = mc.player.getX();
+        double pz = mc.player.getZ();
+
+        java.util.List<Map.Entry<ChunkPos, Integer>> list = new java.util.ArrayList<>(FOUND.entrySet());
+        // strongest first, nearest first when equal
+        list.sort((a, b) -> {
+            int c = Integer.compare(b.getValue(), a.getValue());
+            if (c != 0) return c;
+            double da = Math.hypot(a.getKey().getStartX() + 8 - px, a.getKey().getStartZ() + 8 - pz);
+            double db = Math.hypot(b.getKey().getStartX() + 8 - px, b.getKey().getStartZ() + 8 - pz);
+            return Double.compare(da, db);
+        });
+
+        int shown = Math.min(list.size(), Math.max(1, cfg.susListCount));
+        String[] lines = new String[shown];
+        int[] colors = new int[shown];
+        int width = mc.textRenderer.getWidth("SUS CHUNKS " + list.size());
+        for (int i = 0; i < shown; i++) {
+            ChunkPos p = list.get(i).getKey();
+            int cx = p.getStartX() + 8;
+            int cz = p.getStartZ() + 8;
+            int dist = (int) Math.hypot(cx - px, cz - pz);
+            lines[i] = dist + "m  X " + cx + "  Z " + cz;
+            int score = list.get(i).getValue();
+            colors[i] = score >= 10 ? 0xFFFF5555 : score >= 7 ? 0xFFFFAA33 : 0xFFE6E6E6;
+            width = Math.max(width, mc.textRenderer.getWidth(lines[i]));
+        }
+        width += 12;
+
+        int rowH = 11;
+        int h = 14 + shown * rowH + 3;
+        int x = 4;
+        int y = mc.getWindow().getScaledHeight() / 2 - h / 2;
+        ctx.fill(x, y, x + width, y + h, 0xB0101018);
+        ctx.fill(x, y, x + 2, y + h, 0xFFFF5555);
+        ctx.drawTextWithShadow(mc.textRenderer, Text.literal("SUS CHUNKS " + list.size()), x + 6, y + 3, 0xFF8A8A96);
+        for (int i = 0; i < shown; i++) {
+            ctx.drawTextWithShadow(mc.textRenderer, Text.literal(lines[i]), x + 6, y + 14 + i * rowH, colors[i]);
+        }
     }
 }

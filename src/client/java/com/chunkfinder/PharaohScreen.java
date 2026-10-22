@@ -92,7 +92,8 @@ public class PharaohScreen extends Screen {
     private String search = "";
     private boolean searchFocus = false;
     private int wx, wy, ww, wh;
-    private int d = 1, vw = 0, vh = 0;
+    private float d = 1f;
+    private int vw = 0, vh = 0;
 
     public PharaohScreen(Screen parent) {
         super(Text.of("Pharaoh"));
@@ -242,6 +243,8 @@ public class PharaohScreen extends Screen {
                 slider("Min Lights", 1, 20, "", () -> c.lightMin, v -> c.lightMin = v),
                 slider("Sus Sensitivity", 1, 10, "", () -> c.susSensitivity, v -> c.susSensitivity = v),
                 toggle("Tall Columns", () -> c.tallColumns, v -> c.tallColumns = v),
+                toggle("Sus Chunk List", () -> c.susList, v -> c.susList = v),
+                slider("List Length", 1, 12, "", () -> c.susListCount, v -> c.susListCount = v),
                 toggle("Chat Alerts", () -> c.notify, v -> c.notify = v),
                 slider("Render Height", -64, 320, "", () -> c.renderY, v -> c.renderY = v)),
             module("Chunk Colors", () -> true, v -> { }, chunkColorSettings(c)),
@@ -266,8 +269,11 @@ public class PharaohScreen extends Screen {
                 toggle("Filled", () -> c.chestEspFill, v -> c.chestEspFill = v),
                 toggle("Tracers", () -> c.chestEspTracers, v -> c.chestEspTracers = v),
                 toggle("Labels", () -> c.chestEspLabels, v -> c.chestEspLabels = v),
+                toggle("Group Piles", () -> c.chestEspGroup, v -> c.chestEspGroup = v),
+                toggle("Highlight Open / In Use", () -> c.chestEspActive, v -> c.chestEspActive = v),
                 toggle("Summary List", () -> c.chestEspSummary, v -> c.chestEspSummary = v),
                 toggle("Alert: Spawners", () -> c.alertSpawners, v -> c.alertSpawners = v),
+                toggle("Alert: Stashes", () -> c.alertStash, v -> c.alertStash = v),
                 toggle("Alert: Bases", () -> c.alertBases, v -> c.alertBases = v)),
             module("Ore ESP", () -> c.oreEspEnabled, v -> c.oreEspEnabled = v,
                 slider("Range (chunks)", 1, 12, "", () -> c.oreEspRange, v -> c.oreEspRange = v),
@@ -317,7 +323,8 @@ public class PharaohScreen extends Screen {
 
         PANELS.add(panel("Client", 0xFFE0A526,
             module("Menu", () -> true, v -> { },
-                keybind("Menu Key", ChunkFinderClient::menuKey)),
+                keybind("Menu Key", ChunkFinderClient::menuKey),
+                slider("Menu Size (applies on release)", 60, 200, "%", () -> c.menuScale, v -> c.menuScale = v)),
             module("Tool List", () -> c.showModuleList, v -> c.showModuleList = v)));
     }
 
@@ -471,11 +478,11 @@ public class PharaohScreen extends Screen {
         buildPanels();
         // Draw in finer units: one unit is about one real screen pixel per font pixel, so shapes and text are crisp.
         int s = this.client != null ? (int) Math.round(this.client.getWindow().getScaleFactor()) : 2;
-        d = Math.max(1, s <= 3 ? s : s / 2);
-        vw = this.width * d;
-        vh = this.height * d;
-        ww = Math.min(vw - 24, 680);
-        wh = Math.min(vh - 24, 380);
+        d = 100f / ChunkFinderConfig.INSTANCE.menuScale;
+        vw = (int) (this.width * d);
+        vh = (int) (this.height * d);
+        ww = Math.min(vw - 16, 720);
+        wh = Math.min(vh - 16, 400);
         wx = (vw - ww) / 2;
         wy = (vh - wh) / 2;
     }
@@ -488,7 +495,7 @@ public class PharaohScreen extends Screen {
             c.getMatrices().push();
             try {
                 c.getMatrices().scale(1f / d, 1f / d, 1f);
-                renderInner(c, mx * d, my * d, delta);
+                renderInner(c, (int) (mx * d), (int) (my * d), delta);
             } finally {
                 c.getMatrices().pop();
             }
@@ -863,6 +870,7 @@ public class PharaohScreen extends Screen {
         if (dragSlider != null) {
             dragSlider = null;
             ChunkFinderConfig.save();
+            init();
             return true;
         }
         return super.mouseReleased(mx, my, button);

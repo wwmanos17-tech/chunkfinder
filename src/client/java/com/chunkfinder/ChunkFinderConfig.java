@@ -16,6 +16,8 @@ public class ChunkFinderConfig {
     public static ChunkFinderConfig INSTANCE = new ChunkFinderConfig();
 
     // ---------------- Module list (on-screen list of tools that are ON) ----------------
+    /** Size of the menu in percent. */
+    public int menuScale = 100;
     public boolean showModuleList = true;
 
     // ---------------- Keys that switch a tool on/off (tool name -> GLFW key code) ----------------
@@ -35,6 +37,8 @@ public class ChunkFinderConfig {
     /** 1..10 - higher flags more suspicious-looking chunks. */
     public int susSensitivity = 5;
     public boolean tallColumns = true;
+    public boolean susList = true;
+    public int susListCount = 5;
     public boolean detectLight = true;
     /** Underground lights needed in a chunk before it is flagged (1..20). */
     public int lightMin = 3;
@@ -80,6 +84,9 @@ public class ChunkFinderConfig {
     public boolean chestEspLabels = true;
     public boolean chestEspSummary = true;
     /** Chat alerts from the Chest ESP scan. */
+    public boolean chestEspActive = true;
+    public boolean alertStash = true;
+    public boolean chestEspGroup = true;
     public boolean alertSpawners = true;
     public boolean alertBases = true;
 
@@ -190,6 +197,8 @@ public class ChunkFinderConfig {
         spectatorPopupSeconds = clampInt(spectatorPopupSeconds, 1, 10);
         spectatorCooldownMinutes = clampInt(spectatorCooldownMinutes, 0, 120);
         staffMaxRank = clampInt(staffMaxRank, 0, 99);
+        menuScale = clampInt(menuScale, 60, 200);
+        susListCount = clampInt(susListCount, 1, 12);
         if (staffNames == null) staffNames = new String[0];
         if (staffKeywords == null) staffKeywords = new String[0];
         if (spectatorMessage == null || spectatorMessage.equals("Good luck, Pharaoh player")) spectatorMessage = "Goodluck Pharaoh User, Be Careful";

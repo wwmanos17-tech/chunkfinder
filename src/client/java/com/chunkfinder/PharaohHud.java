@@ -27,6 +27,15 @@ public class PharaohHud {
                 ChunkFinderClient.LOGGER.error("Staff list drawing failed", t);
             }
         });
+        HudRenderCallback.EVENT.register((ctx, tc) -> {
+            try {
+                MinecraftClient mc = MinecraftClient.getInstance();
+                if (mc.world == null || mc.player == null || mc.options.hudHidden) return;
+                SusScanner.renderList(ctx, mc);
+            } catch (Throwable t) {
+                ChunkFinderClient.LOGGER.error("Sus list drawing failed", t);
+            }
+        });
     }
 
     private static long pausedUntil = 0;
@@ -114,13 +123,18 @@ public class PharaohHud {
         if (!cfg.chestEspEnabled || !cfg.chestEspLabels) return;
         Vec3d cam = Proj.camPos(mc);
 
-        List<ChestEsp.Target> list = new ArrayList<>(ChestEsp.current(mc, cam));
+        ChestEsp.View view = ChestEsp.view(mc, cam);
+        for (ChestEsp.Group g : view.groups()) {
+            Vec3d gc = g.center();
+            label(ctx, mc, new Vec3d(gc.x, g.y2() + 1.0, gc.z), g.text() + " [" + (int) gc.distanceTo(cam) + "m]", 0xFFFFD24D);
+        }
+        List<ChestEsp.Target> list = new ArrayList<>(view.singles());
         list.sort((a, b) -> Double.compare(a.center().distanceTo(cam), b.center().distanceTo(cam)));
         int shown = 0;
         for (ChestEsp.Target t : list) {
             if (shown >= 40) break;
             Vec3d c = t.center();
-            int rgb = ((int) (t.kind().r * 255) << 16) | ((int) (t.kind().g * 255) << 8) | (int) (t.kind().b * 255);
+            int rgb = ((int) (t.r() * 255) << 16) | ((int) (t.g() * 255) << 8) | (int) (t.b() * 255);
             label(ctx, mc, new Vec3d(c.x, t.y2() + 0.4, c.z),
                 t.kind().label + " [" + (int) c.distanceTo(cam) + "m]", 0xFF000000 | rgb);
             shown++;
