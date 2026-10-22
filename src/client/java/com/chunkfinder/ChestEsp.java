@@ -120,7 +120,7 @@ public class ChestEsp {
     private static int tint(BlockState st, Kind k) {
         Block b = st.getBlock();
         if (b instanceof ShulkerBoxBlock) {
-            net.minecraft.util.DyeColor dye = ShulkerBoxBlock.getColor(b);
+            net.minecraft.util.DyeColor dye = ((ShulkerBoxBlock) b).getColor();
             return dye == null ? 0xB478C8 : dye.getFireworkColor();
         }
         if ((k == Kind.CHEST || k == Kind.TRAPPED) && st.contains(net.minecraft.block.ChestBlock.CHEST_TYPE)) {
