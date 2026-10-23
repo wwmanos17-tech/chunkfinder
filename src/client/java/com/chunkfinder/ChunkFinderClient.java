@@ -38,6 +38,7 @@ public class ChunkFinderClient implements ClientModInitializer {
         ChunkScanner.clear();
         SusScanner.clear();
         BaseEsp.clear();
+        ItemEsp.clear();
         LightFinder.clear();
         ChestEsp.clear();
         OreEsp.clear();

@@ -99,6 +99,15 @@ public class ChunkFinderConfig {
     public boolean alertSpawners = true;
     public boolean alertBases = true;
 
+    // ---------------- Item ESP ----------------
+    public boolean itemEspEnabled = false;
+    public int itemEspRange = 128;
+    public boolean itemEspAll = false;
+    public boolean itemEspLabels = true;
+    public boolean itemEspFill = true;
+    public boolean itemEspTracers = false;
+    public boolean itemEspAlert = true;
+
     // ---------------- Base ESP ----------------
     public boolean baseEspEnabled = false;
     public int baseEspSensitivity = 5;
@@ -214,6 +223,7 @@ public class ChunkFinderConfig {
         chestEspRange = clampInt(chestEspRange, 16, 2048);
         oreEspRange = clampInt(oreEspRange, 1, 12);
         baseEspSensitivity = clampInt(baseEspSensitivity, 3, 20);
+        itemEspRange = clampInt(itemEspRange, 8, 512);
         spectatorRange = clampInt(spectatorRange, 4, 128);
         spectatorHeadPercent = clampInt(spectatorHeadPercent, 10, 100);
         spectatorPopupSeconds = clampInt(spectatorPopupSeconds, 1, 10);
