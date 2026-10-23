@@ -99,6 +99,10 @@ public class ChunkFinderConfig {
     public boolean alertSpawners = true;
     public boolean alertBases = true;
 
+    // ---------------- Butterfly Knife ----------------
+    public boolean butterflyEnabled = false;
+    public boolean butterflyNonStop = false;
+
     // ---------------- Base ESP ----------------
     public boolean baseEspEnabled = false;
     public int baseEspSensitivity = 5;

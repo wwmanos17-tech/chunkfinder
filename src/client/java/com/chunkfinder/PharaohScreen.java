@@ -283,6 +283,8 @@ public class PharaohScreen extends Screen {
                 toggle("Alert: Spawners", () -> c.alertSpawners, v -> c.alertSpawners = v),
                 toggle("Alert: Stashes", () -> c.alertStash, v -> c.alertStash = v),
                 toggle("Alert: Bases", () -> c.alertBases, v -> c.alertBases = v)),
+            module("Butterfly Knife", () -> c.butterflyEnabled, v -> c.butterflyEnabled = v,
+                toggle("Non-Stop Flipping", () -> c.butterflyNonStop, v -> c.butterflyNonStop = v)),
             module("Base ESP", () -> c.baseEspEnabled, v -> c.baseEspEnabled = v,
                 slider("Sensitivity (low = more)", 3, 20, "", () -> c.baseEspSensitivity, v -> c.baseEspSensitivity = v),
                 toggle("Filled", () -> c.baseEspFill, v -> c.baseEspFill = v),

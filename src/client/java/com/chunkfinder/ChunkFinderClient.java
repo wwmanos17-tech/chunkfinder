@@ -51,7 +51,7 @@ public class ChunkFinderClient implements ClientModInitializer {
             net.fabricmc.loader.api.FabricLoader.getInstance().getModContainer("chunkfinder").ifPresent(container -> {
                 net.fabricmc.fabric.api.resource.ResourceManagerHelper.registerBuiltinResourcePack(
                     net.minecraft.util.Identifier.of("chunkfinder", "butterfly"), container,
-                    Text.literal("Pharaoh Butterfly"),
+                    Text.literal("Pharaoh Butterfly (use the Butterfly Knife module)"),
                     net.fabricmc.fabric.api.resource.ResourcePackActivationType.NORMAL);
                 net.fabricmc.fabric.api.resource.ResourceManagerHelper.registerBuiltinResourcePack(
                     net.minecraft.util.Identifier.of("chunkfinder", "butterfly_flip"), container,
@@ -137,6 +137,7 @@ public class ChunkFinderClient implements ClientModInitializer {
         safe("ChunkScanner", () -> ChunkScanner.tick(mc));
         safe("SusScanner", () -> SusScanner.tick(mc));
         safe("BaseEsp", () -> BaseEsp.tick(mc));
+        safe("ButterflyKnife", () -> ButterflyKnife.tick(mc));
         safe("LightFinder", () -> LightFinder.tick(mc));
         safe("OreEsp", () -> OreEsp.tick(mc));
         safe("SpectatorAlert", () -> SpectatorAlert.tick(mc));
