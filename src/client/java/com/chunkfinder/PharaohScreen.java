@@ -283,8 +283,6 @@ public class PharaohScreen extends Screen {
                 toggle("Alert: Spawners", () -> c.alertSpawners, v -> c.alertSpawners = v),
                 toggle("Alert: Stashes", () -> c.alertStash, v -> c.alertStash = v),
                 toggle("Alert: Bases", () -> c.alertBases, v -> c.alertBases = v)),
-            module("Butterfly Knife", () -> c.butterflyEnabled, v -> c.butterflyEnabled = v,
-                toggle("Non-Stop Flipping", () -> c.butterflyNonStop, v -> c.butterflyNonStop = v)),
             module("Base ESP", () -> c.baseEspEnabled, v -> c.baseEspEnabled = v,
                 slider("Sensitivity (low = more)", 3, 20, "", () -> c.baseEspSensitivity, v -> c.baseEspSensitivity = v),
                 toggle("Filled", () -> c.baseEspFill, v -> c.baseEspFill = v),
@@ -392,10 +390,10 @@ public class PharaohScreen extends Screen {
     }
 
     private static void pill(DrawContext c, int x, int y, boolean on, int col) {
-        // round switch: green when on, red when off, with a round white knob
-        capsule(c, x - 1, y - 1, 34, 20, on ? 0xFF8CFFB4 : 0xFFFF8A8A);
-        capsule(c, x, y, 32, 18, on ? 0xFF1FC95A : 0xFFD42E2E);
-        disc(c, on ? x + 23 : x + 9, y + 9, 7f, 0xFFFFFFFF);
+        // round switch: blue when on, white when off
+        capsule(c, x - 1, y - 1, 34, 20, on ? 0xFF9CC8FF : 0xFFFFFFFF);
+        capsule(c, x, y, 32, 18, on ? 0xFF2F7BFF : 0xFFDDE6F5);
+        disc(c, on ? x + 23 : x + 9, y + 9, 7f, on ? 0xFFFFFFFF : 0xFF2F7BFF);
     }
 
     private static void plusButton(DrawContext c, int x, int y, boolean open) {

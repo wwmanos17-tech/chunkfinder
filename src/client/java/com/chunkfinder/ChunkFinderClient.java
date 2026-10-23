@@ -45,29 +45,10 @@ public class ChunkFinderClient implements ClientModInitializer {
         StaffTracker.clear();
     }
 
-    /** Optional resource packs (off until you switch them on in Options > Resource Packs): butterfly knife sword skins. */
-    private static void registerKarambitPacks() {
-        try {
-            net.fabricmc.loader.api.FabricLoader.getInstance().getModContainer("chunkfinder").ifPresent(container -> {
-                net.fabricmc.fabric.api.resource.ResourceManagerHelper.registerBuiltinResourcePack(
-                    net.minecraft.util.Identifier.of("chunkfinder", "butterfly"), container,
-                    Text.literal("Pharaoh Butterfly (use the Butterfly Knife module)"),
-                    net.fabricmc.fabric.api.resource.ResourcePackActivationType.NORMAL);
-                net.fabricmc.fabric.api.resource.ResourceManagerHelper.registerBuiltinResourcePack(
-                    net.minecraft.util.Identifier.of("chunkfinder", "butterfly_flip"), container,
-                    Text.literal("Pharaoh Butterfly (non-stop flipping)"),
-                    net.fabricmc.fabric.api.resource.ResourcePackActivationType.NORMAL);
-            });
-        } catch (Throwable t) {
-            LOGGER.error("Could not add the butterfly resource packs", t);
-        }
-    }
-
     @Override
     public void onInitializeClient() {
         ChunkFinderConfig.load();
         PharaohScreen.ensureBuilt();
-        registerKarambitPacks();
 
         toggleKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
             "key.chunkfinder.toggle", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_J, "key.categories.chunkfinder"));
@@ -137,7 +118,6 @@ public class ChunkFinderClient implements ClientModInitializer {
         safe("ChunkScanner", () -> ChunkScanner.tick(mc));
         safe("SusScanner", () -> SusScanner.tick(mc));
         safe("BaseEsp", () -> BaseEsp.tick(mc));
-        safe("ButterflyKnife", () -> ButterflyKnife.tick(mc));
         safe("LightFinder", () -> LightFinder.tick(mc));
         safe("OreEsp", () -> OreEsp.tick(mc));
         safe("SpectatorAlert", () -> SpectatorAlert.tick(mc));
