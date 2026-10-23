@@ -37,6 +37,7 @@ public class ChunkFinderClient implements ClientModInitializer {
     public static void clearAll() {
         ChunkScanner.clear();
         SusScanner.clear();
+        BaseEsp.clear();
         LightFinder.clear();
         ChestEsp.clear();
         OreEsp.clear();
@@ -44,10 +45,29 @@ public class ChunkFinderClient implements ClientModInitializer {
         StaffTracker.clear();
     }
 
+    /** Optional resource packs (off until you switch them on in Options > Resource Packs): butterfly knife sword skins. */
+    private static void registerKarambitPacks() {
+        try {
+            net.fabricmc.loader.api.FabricLoader.getInstance().getModContainer("chunkfinder").ifPresent(container -> {
+                net.fabricmc.fabric.api.resource.ResourceManagerHelper.registerBuiltinResourcePack(
+                    net.minecraft.util.Identifier.of("chunkfinder", "butterfly"), container,
+                    Text.literal("Pharaoh Butterfly"),
+                    net.fabricmc.fabric.api.resource.ResourcePackActivationType.NORMAL);
+                net.fabricmc.fabric.api.resource.ResourceManagerHelper.registerBuiltinResourcePack(
+                    net.minecraft.util.Identifier.of("chunkfinder", "butterfly_flip"), container,
+                    Text.literal("Pharaoh Butterfly (non-stop flipping)"),
+                    net.fabricmc.fabric.api.resource.ResourcePackActivationType.NORMAL);
+            });
+        } catch (Throwable t) {
+            LOGGER.error("Could not add the butterfly resource packs", t);
+        }
+    }
+
     @Override
     public void onInitializeClient() {
         ChunkFinderConfig.load();
         PharaohScreen.ensureBuilt();
+        registerKarambitPacks();
 
         toggleKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
             "key.chunkfinder.toggle", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_J, "key.categories.chunkfinder"));
@@ -77,6 +97,7 @@ public class ChunkFinderClient implements ClientModInitializer {
                 cfg.enabled = !cfg.enabled;
                 ChunkScanner.clear();
                 SusScanner.clear();
+        BaseEsp.clear();
                 ChunkFinderConfig.save();
                 if (mc.player != null) {
                     mc.player.sendMessage(Text.literal("Chunk Finder: " + (cfg.enabled ? "ON" : "OFF")), true);
@@ -115,6 +136,7 @@ public class ChunkFinderClient implements ClientModInitializer {
         safe("ChestEsp", () -> ChestEsp.tick(mc));
         safe("ChunkScanner", () -> ChunkScanner.tick(mc));
         safe("SusScanner", () -> SusScanner.tick(mc));
+        safe("BaseEsp", () -> BaseEsp.tick(mc));
         safe("LightFinder", () -> LightFinder.tick(mc));
         safe("OreEsp", () -> OreEsp.tick(mc));
         safe("SpectatorAlert", () -> SpectatorAlert.tick(mc));

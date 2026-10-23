@@ -99,6 +99,16 @@ public class ChunkFinderConfig {
     public boolean alertSpawners = true;
     public boolean alertBases = true;
 
+    // ---------------- Base ESP ----------------
+    public boolean baseEspEnabled = false;
+    public int baseEspSensitivity = 5;
+    public boolean baseEspFill = true;
+    public boolean baseEspLabels = true;
+    public boolean baseEspTracer = true;
+    public boolean baseEspAlert = true;
+    public boolean baseEspUseVillagers = true;
+    public boolean baseEspUseSus = true;
+
     // ---------------- Ore ESP ----------------
     public boolean oreEspEnabled = false;
     /** Scan radius in chunks (1..8). */
@@ -203,6 +213,7 @@ public class ChunkFinderConfig {
         playerEspRange = clampInt(playerEspRange, 16, 1024);
         chestEspRange = clampInt(chestEspRange, 16, 2048);
         oreEspRange = clampInt(oreEspRange, 1, 12);
+        baseEspSensitivity = clampInt(baseEspSensitivity, 3, 20);
         spectatorRange = clampInt(spectatorRange, 4, 128);
         spectatorHeadPercent = clampInt(spectatorHeadPercent, 10, 100);
         spectatorPopupSeconds = clampInt(spectatorPopupSeconds, 1, 10);

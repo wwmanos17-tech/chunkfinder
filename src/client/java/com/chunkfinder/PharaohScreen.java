@@ -283,6 +283,14 @@ public class PharaohScreen extends Screen {
                 toggle("Alert: Spawners", () -> c.alertSpawners, v -> c.alertSpawners = v),
                 toggle("Alert: Stashes", () -> c.alertStash, v -> c.alertStash = v),
                 toggle("Alert: Bases", () -> c.alertBases, v -> c.alertBases = v)),
+            module("Base ESP", () -> c.baseEspEnabled, v -> c.baseEspEnabled = v,
+                slider("Sensitivity (low = more)", 3, 20, "", () -> c.baseEspSensitivity, v -> c.baseEspSensitivity = v),
+                toggle("Filled", () -> c.baseEspFill, v -> c.baseEspFill = v),
+                toggle("Labels", () -> c.baseEspLabels, v -> c.baseEspLabels = v),
+                toggle("Tracer To Strongest", () -> c.baseEspTracer, v -> c.baseEspTracer = v),
+                toggle("Count Villagers", () -> c.baseEspUseVillagers, v -> c.baseEspUseVillagers = v),
+                toggle("Count Sus Chunks", () -> c.baseEspUseSus, v -> c.baseEspUseSus = v),
+                toggle("Chat Alert", () -> c.baseEspAlert, v -> c.baseEspAlert = v)),
             module("Ore ESP", () -> c.oreEspEnabled, v -> c.oreEspEnabled = v,
                 slider("Range (chunks)", 1, 12, "", () -> c.oreEspRange, v -> c.oreEspRange = v),
                 toggle("Diamond", () -> c.oreDiamond, v -> c.oreDiamond = v),
@@ -363,10 +371,36 @@ public class PharaohScreen extends Screen {
         }
     }
 
+    /** A properly round disc, drawn row by row. */
+    private static void disc(DrawContext c, float cx, float cy, float r, int color) {
+        for (int dy = (int) -Math.ceil(r); dy <= (int) Math.ceil(r); dy++) {
+            float yy = dy + 0.5f;
+            if (Math.abs(yy) > r) continue;
+            float half = (float) Math.sqrt(r * r - yy * yy);
+            int x1 = Math.round(cx - half), x2 = Math.round(cx + half);
+            if (x2 > x1) c.fill(x1, (int) cy + dy, x2, (int) cy + dy + 1, color);
+        }
+    }
+
+    private static void capsule(DrawContext c, int x, int y, int w, int h, int color) {
+        float r = h / 2f;
+        disc(c, x + r, y + r, r, color);
+        disc(c, x + w - r, y + r, r, color);
+        c.fill((int) (x + r), y, (int) (x + w - r), y + h, color);
+    }
+
     private static void pill(DrawContext c, int x, int y, boolean on, int col) {
-        round(c, x, y, x + 24, y + 12, on ? col : 0xFF2E2718, 6);
-        int kx = on ? x + 13 : x + 2;
-        round(c, kx, y + 2, kx + 9, y + 10, 0xFFFFFFFF, 4);
+        // round switch: green when on, red when off, with a round white knob
+        capsule(c, x - 1, y - 1, 34, 20, on ? 0xFF8CFFB4 : 0xFFFF8A8A);
+        capsule(c, x, y, 32, 18, on ? 0xFF1FC95A : 0xFFD42E2E);
+        disc(c, on ? x + 23 : x + 9, y + 9, 7f, 0xFFFFFFFF);
+    }
+
+    private static void plusButton(DrawContext c, int x, int y, boolean open) {
+        round(c, x, y, x + 18, y + 18, 0xFFFFE08A, 4);
+        round(c, x + 1, y + 1, x + 17, y + 17, 0xFF2A2314, 4);
+        c.fill(x + 4, y + 8, x + 14, y + 10, 0xFFFFE08A);
+        if (!open) c.fill(x + 8, y + 4, x + 10, y + 14, 0xFFFFE08A);
     }
 
     private static final String[] STAR = {
@@ -374,10 +408,36 @@ public class PharaohScreen extends Screen {
     };
 
     private static void star(DrawContext c, int x, int y, int color) {
-        for (int r = 0; r < STAR.length; r++) {
-            for (int q = 0; q < STAR[r].length(); q++) {
-                if (STAR[r].charAt(q) == '#') c.fill(x + q, y + r, x + q + 1, y + r + 1, color);
+        // rounded five point star: polygon + round tips + a round middle, with a dark shadow
+        for (int pass = 0; pass < 2; pass++) {
+            float cx = x + 7 + (pass == 0 ? 1 : 0), cy = y + 7.6f + (pass == 0 ? 1 : 0);
+            int col = pass == 0 ? 0xFF000000 : color;
+            float R = 8f, r = 4.6f;
+            float[] px = new float[10], py = new float[10];
+            for (int i = 0; i < 10; i++) {
+                double ang = -Math.PI / 2 + i * Math.PI / 5;
+                float rad = (i % 2 == 0) ? R : r;
+                px[i] = cx + (float) Math.cos(ang) * rad;
+                py[i] = cy + (float) Math.sin(ang) * rad;
             }
+            for (int row = (int) Math.floor(cy - R); row <= (int) Math.ceil(cy + R); row++) {
+                float yy = row + 0.5f;
+                float[] xs = new float[10];
+                int n = 0;
+                for (int i = 0; i < 10; i++) {
+                    int j = (i + 1) % 10;
+                    if ((py[i] <= yy && py[j] > yy) || (py[j] <= yy && py[i] > yy)) {
+                        xs[n++] = px[i] + (yy - py[i]) * (px[j] - px[i]) / (py[j] - py[i]);
+                    }
+                }
+                java.util.Arrays.sort(xs, 0, n);
+                for (int k = 0; k + 1 < n; k += 2) {
+                    c.fill(Math.round(xs[k]), row, Math.round(xs[k + 1]), row + 1, col);
+                }
+            }
+            for (int i = 0; i < 10; i += 2) disc(c, px[i] + (px[i] < cx ? 0.6f : px[i] > cx ? -0.6f : 0f),
+                py[i] + (i == 0 ? 0.8f : 0f), 1.4f, col);
+            disc(c, cx, cy, 3.6f, col);
         }
     }
 
@@ -607,7 +667,7 @@ public class PharaohScreen extends Screen {
 
         // module list
         int top = wy + HEADER + 40;
-        int bottom = wy + wh - 28;
+        int bottom = wy + wh - 10;
         List<Module> mods = shown();
         int y = top - scroll;
         int colw = (cw - 8) / 2;
@@ -636,12 +696,6 @@ public class PharaohScreen extends Screen {
         }
         int maxScroll = Math.max(0, contentH - (bottom - top));
         scroll = Math.max(0, Math.min(scroll, maxScroll));
-
-        // tips
-        String tip1 = "Click a Key box, then press a key. Right click or Backspace resets it.";
-        String tip2 = "A- / A+ or Ctrl + scroll = menu size.  Drag the staff list or region map to move them, scroll over the map to resize it.";
-        c.drawTextWithShadow(this.textRenderer, ui(trim(tip1, cw)), x0, wy + wh - 25, 0xFF8A7F62);
-        c.drawTextWithShadow(this.textRenderer, ui(trim(tip2, cw)), x0, wy + wh - 13, 0xFF8A7F62);
 
     }
 
@@ -687,14 +741,14 @@ public class PharaohScreen extends Screen {
 
         // + (settings), star, switch
         if (!m.settings.isEmpty()) {
-            c.drawTextWithShadow(this.textRenderer, ui(m.open ? "-" : "+"), x + w - 76, y + 10, bright);
-            addHit(1, m, null, x + w - 84, y + 4, 18, 20, top, bottom);
+            plusButton(c, x + w - 98, y + 11, m.open);
+            addHit(1, m, null, x + w - 102, y + 6, 26, 28, top, bottom);
         }
         boolean fav = isFavorite(m);
-        star(c, x + w - 56, y + 15, fav ? ACCENT : 0xFF776B4E);
-        addHit(2, m, null, x + w - 62, y + 9, 18, 22, top, bottom);
-        pill(c, x + w - 34, y + 14, on, mix(col, 0xFFFFFFFF, 0.12f));
-        addHit(0, m, null, x + w - 38, y + 10, 32, 20, top, bottom);
+        star(c, x + w - 70, y + 13, fav ? 0xFFFFC21A : 0xFFC9BC94);
+        addHit(2, m, null, x + w - 74, y + 8, 22, 26, top, bottom);
+        pill(c, x + w - 42, y + 12, on, col);
+        addHit(0, m, null, x + w - 46, y + 8, 40, 24, top, bottom);
 
         // settings
         if (m.open) {

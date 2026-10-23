@@ -134,7 +134,8 @@ public class ChestEsp {
     private static boolean storage(BlockState st) {
         Block b = st.getBlock();
         return b == Blocks.CHEST || b == Blocks.TRAPPED_CHEST || b == Blocks.ENDER_CHEST || b == Blocks.BARREL
-            || b == Blocks.SPAWNER || b == Blocks.BEACON || b == Blocks.DROPPER || b instanceof ShulkerBoxBlock;
+            || b == Blocks.SPAWNER || b == Blocks.BEACON || b == Blocks.DROPPER || b instanceof ShulkerBoxBlock
+            || b == Blocks.PISTON || b == Blocks.STICKY_PISTON || b == Blocks.REDSTONE_BLOCK || b == Blocks.HOPPER;
     }
 
     private static Kind blockKind(Block b) {
@@ -168,6 +169,12 @@ public class ChestEsp {
                             DROPPER_POS.add(new BlockPos(bx + x, y0 + y, bz + z).asLong());
                             continue;
                         }
+                        Block tb = st.getBlock();
+                        int tech = (tb == Blocks.PISTON || tb == Blocks.STICKY_PISTON) ? 0 : tb == Blocks.REDSTONE_BLOCK ? 1 : tb == Blocks.HOPPER ? 2 : -1;
+                        if (tech >= 0) {
+                            if (TECH.size() < 8000) TECH.put(new BlockPos(bx + x, y0 + y, bz + z).asLong(), tech);
+                            continue;
+                        }
                         Kind k = blockKind(st.getBlock());
                         if (k == null) continue;
                         BlockPos p = new BlockPos(bx + x, y0 + y, bz + z);
@@ -188,6 +195,16 @@ public class ChestEsp {
     /** Everything seen so far, so a chest the server stops sending later stays marked. */
     private static final Map<Long, Target> MEMORY = new java.util.LinkedHashMap<>();
 
+    /** Everything remembered so far (used by the Base ESP). */
+    public static java.util.Collection<Target> memory() { return MEMORY.values(); }
+
+    /** Pistons (0), redstone blocks (1) and hoppers (2) seen so far, by block position. */
+    private static final Map<Long, Integer> TECH = new java.util.HashMap<>();
+
+    public static Map<Long, Integer> techBlocks() { return TECH; }
+
+    public static java.util.Set<Long> dropperPositions() { return DROPPER_POS; }
+
     private static final java.util.Set<Long> SPAWNERS_SEEN = new java.util.HashSet<>();
     private static final java.util.Set<Long> BASES_SEEN = new java.util.HashSet<>();
 
@@ -202,6 +219,7 @@ public class ChestEsp {
         COUNTS.clear();
         MEMORY.clear();
         DROPPER_POS.clear();
+        TECH.clear();
         STASH_SEEN.clear();
         VIEW = null;
         BLOCK_SCANNED.clear();
@@ -238,7 +256,7 @@ public class ChestEsp {
 
     public static void tick(MinecraftClient mc) {
         ChunkFinderConfig cfg = ChunkFinderConfig.INSTANCE;
-        if (!cfg.chestEspEnabled || mc.world == null || mc.player == null) return;
+        if ((!cfg.chestEspEnabled && !cfg.baseEspEnabled) || mc.world == null || mc.player == null) return;
         if (timer-- > 0) return;
         timer = 3;
         ticks += 3;

@@ -114,20 +114,28 @@ public class SpectatorAlert {
         int h = mc.getWindow().getScaledHeight();
 
         if (t < popup) {
-            // see-through head: fades in fast, holds, fades out. No dark screen behind it.
-            float in = Math.min(1f, t / 0.25f);
-            float out = Math.min(1f, (popup - t) / 0.5f);
-            float alpha = 0.62f * Math.min(in, out);
+            // elder-guardian style: the see-through head rises from below, grows toward you with a slight
+            // shake, and fades out. No dark screen behind it.
             float p = Math.min(1f, t / popup);
-            float grow = 0.92f + 0.12f * p;
-            int size = (int) (h * 1.0f * (cfg.spectatorHeadPercent / 100f) * grow);
-            size = Math.max(size, 2);
-            int x = (w - size) / 2;
-            int y = (h - size) / 2;
+            float in = Math.min(1f, t / 0.35f);
+            float out = Math.min(1f, (popup - t) / 0.6f);
+            float alpha = 0.6f * Math.min(in, out);
+            // like the Anubis effect: a big see-through head drops in from the top, stops in the middle, then sinks down and out
+            int size = Math.max(2, (int) (h * 1.1f * (cfg.spectatorHeadPercent / 100f)));
+            float cy;
+            if (p < 0.2f) {
+                float q = p / 0.2f;
+                cy = h * (0.02f + 0.48f * (1f - (1f - q) * (1f - q)));
+            } else {
+                float q = (p - 0.2f) / 0.8f;
+                cy = h * (0.5f + 0.30f * q * q);
+            }
+            int x = (int) ((w - size) / 2f + 1.5f * Math.sin(t * 40f));
+            int y = (int) (cy - size / 2f);
 
             if (shownSkin != null) {
                 com.mojang.blaze3d.systems.RenderSystem.enableBlend();
-                com.mojang.blaze3d.systems.RenderSystem.setShaderColor(1f, 1f, 1f, alpha);
+                com.mojang.blaze3d.systems.RenderSystem.setShaderColor(1.15f, 1.0f, 1.0f, alpha);
                 PlayerSkinDrawer.draw(ctx, shownSkin, x, y, size);
                 ctx.draw();
                 com.mojang.blaze3d.systems.RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
@@ -138,16 +146,38 @@ public class SpectatorAlert {
             float alpha = Math.min(Math.min(1f, m / 0.3f), Math.min(1f, (WATCH_SECONDS - m) / 0.5f));
             int a = (int) (255 * alpha);
             if (a > 8) {
+                // glitchy name: pink ghost copies jump sideways in short bursts, plus small pink bits flickering around
+                java.util.Random rnd = new java.util.Random((long) (t * 14f) * 7919L + 13);
+                boolean burst = rnd.nextFloat() < 0.35f;
+                float ns = Math.max(4f, h / 90f);
+                float ws = Math.max(2f, h / 180f);
+                float flick = rnd.nextFloat() < 0.12f ? 0.45f : 1f;
+                int an = (int) (a * flick);
+                float baseY = h / 2f - h * 0.08f;
+                int jx = burst ? rnd.nextInt(9) - 4 : 0;
+                for (int pass = 0; pass < 3; pass++) {
+                    int color = pass == 0 ? ((an / 2) << 24) | 0xFF3CFF : pass == 1 ? ((an / 2) << 24) | 0x3CD7FF : (an << 24) | 0xFF6A3D;
+                    int ox = pass == 0 ? -2 - jx : pass == 1 ? 2 + jx : 0;
+                    ctx.getMatrices().push();
+                    ctx.getMatrices().translate(w / 2f + ox, baseY, 0f);
+                    ctx.getMatrices().scale(ns, ns, 1f);
+                    ctx.drawCenteredTextWithShadow(mc.textRenderer, Text.literal(shownName), 0, 0, color);
+                    ctx.getMatrices().pop();
+                }
                 ctx.getMatrices().push();
-                ctx.getMatrices().translate(w / 2f, h / 2f - 30, 0f);
-                ctx.getMatrices().scale(4f, 4f, 1f);
-                ctx.drawCenteredTextWithShadow(mc.textRenderer, Text.literal(shownName), 0, 0, (a << 24) | 0xFF5555);
+                ctx.getMatrices().translate(w / 2f + (burst ? rnd.nextInt(5) - 2 : 0), h / 2f + h * 0.04f, 0f);
+                ctx.getMatrices().scale(ws, ws, 1f);
+                ctx.drawCenteredTextWithShadow(mc.textRenderer, Text.literal("WATCHING YOU"), 0, 0, (an << 24) | 0xD8372D);
                 ctx.getMatrices().pop();
-                ctx.getMatrices().push();
-                ctx.getMatrices().translate(w / 2f, h / 2f + 10, 0f);
-                ctx.getMatrices().scale(2f, 2f, 1f);
-                ctx.drawCenteredTextWithShadow(mc.textRenderer, Text.literal("WATCHING YOU"), 0, 0, (a << 24) | 0xAA2222);
-                ctx.getMatrices().pop();
+                int bits = burst ? 22 : 10;
+                for (int i = 0; i < bits; i++) {
+                    int bx = w / 2 + rnd.nextInt((int) (w * 0.5f)) - (int) (w * 0.25f);
+                    int by = (int) baseY - (int) (h * 0.08f) + rnd.nextInt((int) (h * 0.3f));
+                    int bw = 2 + rnd.nextInt(Math.max(3, (int) (h / 70f)) * 2);
+                    int bh = 1 + rnd.nextInt(Math.max(2, (int) (h / 120f)));
+                    int col = rnd.nextBoolean() ? 0xFF55FF : 0xB02CFF;
+                    ctx.fill(bx, by, bx + bw, by + bh, ((int) (a * 0.7f) << 24) | col);
+                }
             }
         } else if (t < popup + WATCH_SECONDS + MESSAGE_SECONDS) {
             float m = t - popup - WATCH_SECONDS;

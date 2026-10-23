@@ -57,6 +57,7 @@ public class PharaohHud {
             if (mc.world == null || mc.player == null) return;
             playerLabels(ctx, mc);
             chestLabels(ctx, mc);
+            baseLabels(ctx, mc);
             chestSummary(ctx, mc);
         } catch (Throwable t) {
             pausedUntil = System.currentTimeMillis() + 2000;
@@ -76,6 +77,7 @@ public class PharaohHud {
             if (Freecam.isActive()) names.add("FREECAM");
             if (c.playerEspEnabled) names.add("PLAYER ESP");
             if (c.chestEspEnabled) names.add("CHEST ESP");
+            if (c.baseEspEnabled) names.add("BASE ESP");
             if (c.oreEspEnabled) names.add("ORE ESP");
             if (c.spectatorEnabled) names.add("SPECTATOR ALERT");
             if (names.isEmpty()) return;
@@ -137,6 +139,21 @@ public class PharaohHud {
         for (ChestEsp.Group g : view.groups()) {
             Vec3d gc = g.center();
             label(ctx, mc, new Vec3d(gc.x, g.y2() + 1.0, gc.z), g.text() + " [" + (int) gc.distanceTo(cam) + "m]", 0xFFFFD24D);
+        }
+    }
+
+    private static void baseLabels(DrawContext ctx, MinecraftClient mc) {
+        ChunkFinderConfig cfg = ChunkFinderConfig.INSTANCE;
+        if (!cfg.baseEspEnabled || !cfg.baseEspLabels) return;
+        Vec3d cam = Proj.camPos(mc);
+        for (BaseEsp.Base b : BaseEsp.BASES) {
+            Vec3d top = new Vec3d(b.cx(), b.maxY() + 2.5, b.cz());
+            int d = (int) Math.sqrt(top.squaredDistanceTo(cam));
+            float[] s = Proj.toScreen(mc, top);
+            if (s == null) continue;
+            int col = 0xFF000000 | b.rgb();
+            ctx.drawCenteredTextWithShadow(mc.textRenderer, Text.literal("BASE: " + b.level() + "  [" + d + "m]"), (int) s[0], (int) s[1] - 5, col);
+            ctx.drawCenteredTextWithShadow(mc.textRenderer, Text.literal(b.summary()), (int) s[0], (int) s[1] + 5, 0xFFE6E6E6);
         }
     }
 
