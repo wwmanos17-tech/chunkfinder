@@ -33,6 +33,8 @@ public class PharaohHud {
                 if (mc.world == null || mc.player == null || mc.options.hudHidden) return;
                 RegionMap.render(ctx, mc);
                 FpsBar.render(ctx, mc);
+                PlayerLog.render(ctx, mc);
+                ArmorHud.render(ctx, mc);
             } catch (Throwable t) {
                 ChunkFinderClient.LOGGER.error("Region map drawing failed", t);
             }
@@ -59,6 +61,7 @@ public class PharaohHud {
             chestLabels(ctx, mc);
             baseLabels(ctx, mc);
             itemLabels(ctx, mc);
+            entityLabels(ctx, mc);
             chestSummary(ctx, mc);
         } catch (Throwable t) {
             pausedUntil = System.currentTimeMillis() + 2000;
@@ -80,6 +83,8 @@ public class PharaohHud {
             if (c.chestEspEnabled) names.add("CHEST ESP");
             if (c.baseEspEnabled) names.add("BASE ESP");
             if (c.itemEspEnabled) names.add("ITEM ESP");
+            if (c.entityEspEnabled) names.add("ENTITY ESP");
+            if (c.playerLogEnabled) names.add("PLAYER LOGGER");
             if (c.oreEspEnabled) names.add("ORE ESP");
             if (c.spectatorEnabled) names.add("SPECTATOR ALERT");
             if (names.isEmpty()) return;
@@ -141,6 +146,16 @@ public class PharaohHud {
         for (ChestEsp.Group g : view.groups()) {
             Vec3d gc = g.center();
             label(ctx, mc, new Vec3d(gc.x, g.y2() + 1.0, gc.z), g.text() + " [" + (int) gc.distanceTo(cam) + "m]", 0xFFFFD24D);
+        }
+    }
+
+    private static void entityLabels(DrawContext ctx, MinecraftClient mc) {
+        if (!ChunkFinderConfig.INSTANCE.entityEspEnabled || !ChunkFinderConfig.INSTANCE.entityEspLabels) return;
+        for (EntityEsp.Label l : EntityEsp.LABELS) {
+            float[] s = Proj.toScreen(mc, new Vec3d(l.x(), l.y(), l.z()));
+            if (s == null) continue;
+            ctx.drawCenteredTextWithShadow(mc.textRenderer, Text.literal(l.text() + " [" + l.dist() + "m]"),
+                (int) s[0], (int) s[1], 0xFF000000 | l.rgb());
         }
     }
 

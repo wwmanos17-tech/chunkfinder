@@ -19,11 +19,15 @@ public class ChunkFinderClient implements ClientModInitializer {
     private static KeyBinding toggleKey;
     private static KeyBinding menuKey;
     private static KeyBinding freecamKey;
+    private static KeyBinding stopwatchKey;
+    private static KeyBinding stopwatchResetKey;
     private static ClientWorld lastWorld = null;
 
     public static KeyBinding menuKey() { return menuKey; }
     public static KeyBinding toggleKey() { return toggleKey; }
     public static KeyBinding freecamKey() { return freecamKey; }
+    public static KeyBinding stopwatchKey() { return stopwatchKey; }
+    public static KeyBinding stopwatchResetKey() { return stopwatchResetKey; }
 
     /** Gives a tool a new key, the same as changing it in Options > Controls. */
     public static void rebind(KeyBinding kb, int glfwKey) {
@@ -39,6 +43,9 @@ public class ChunkFinderClient implements ClientModInitializer {
         SusScanner.clear();
         BaseEsp.clear();
         ItemEsp.clear();
+        EntityEsp.clear();
+        PlayerLog.clear();
+        SessionTimer.clear();
         LightFinder.clear();
         ChestEsp.clear();
         OreEsp.clear();
@@ -58,10 +65,21 @@ public class ChunkFinderClient implements ClientModInitializer {
         freecamKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
             "key.chunkfinder.freecam", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_F4, "key.categories.chunkfinder"));
 
+        stopwatchKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
+            "key.chunkfinder.stopwatch", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_UNKNOWN, "key.categories.chunkfinder"));
+        stopwatchResetKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
+            "key.chunkfinder.stopwatch_reset", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_UNKNOWN, "key.categories.chunkfinder"));
+
         // Freecam reads the keyboard and releases the real movement keys before the player's own tick.
         ClientTickEvents.START_CLIENT_TICK.register(Freecam::tick);
 
         ClientTickEvents.END_CLIENT_TICK.register(mc -> {
+            while (stopwatchKey.wasPressed()) {
+                if (ChunkFinderConfig.INSTANCE.timerEnabled) SessionTimer.toggleStopwatch();
+            }
+            while (stopwatchResetKey.wasPressed()) {
+                if (ChunkFinderConfig.INSTANCE.timerEnabled) SessionTimer.resetStopwatch();
+            }
             while (freecamKey.wasPressed()) {
                 ChunkFinderConfig cfg = ChunkFinderConfig.INSTANCE;
                 if (cfg.freecamEnabled) {
@@ -119,6 +137,7 @@ public class ChunkFinderClient implements ClientModInitializer {
         safe("ChunkScanner", () -> ChunkScanner.tick(mc));
         safe("SusScanner", () -> SusScanner.tick(mc));
         safe("BaseEsp", () -> BaseEsp.tick(mc));
+        safe("PlayerLog", () -> PlayerLog.tick(mc));
         safe("LightFinder", () -> LightFinder.tick(mc));
         safe("OreEsp", () -> OreEsp.tick(mc));
         safe("SpectatorAlert", () -> SpectatorAlert.tick(mc));

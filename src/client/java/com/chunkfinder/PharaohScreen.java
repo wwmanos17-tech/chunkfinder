@@ -92,9 +92,27 @@ public class PharaohScreen extends Screen {
     private String search = "";
     private boolean searchFocus = false;
     private int wx, wy, ww, wh;
-    private int dragHud = 0; // 0 none, 1 staff list, 2 region map, 3 fps bar
+    private int dragHud = 0; // 0 none, 1 staff list, 2 region map, 3 fps bar, 4 player log, 5 armor hud
     private int hudOffX, hudOffY;
     private float d = 1f;
+    // smooth animations
+    private final java.util.IdentityHashMap<Object, Float> swAnim = new java.util.IdentityHashMap<>();
+    private final java.util.IdentityHashMap<Object, Float> hovAnim = new java.util.IdentityHashMap<>();
+    private final java.util.IdentityHashMap<Object, Float> openAnim = new java.util.IdentityHashMap<>();
+    private long lastFrame = System.nanoTime();
+    private float dt = 0.016f;
+    private final long openedAt = System.currentTimeMillis();
+    private float openE = 0f;
+    private float scrollShown = 0f;
+
+    private float anim(java.util.IdentityHashMap<Object, Float> map, Object key, float target, float speed) {
+        Float cur = map.get(key);
+        float v = cur == null ? target : cur;
+        v += (target - v) * Math.min(1f, dt * speed);
+        if (Math.abs(target - v) < 0.003f) v = target;
+        map.put(key, v);
+        return v;
+    }
     private int vw = 0, vh = 0;
 
     public PharaohScreen(Screen parent) {
@@ -283,6 +301,34 @@ public class PharaohScreen extends Screen {
                 toggle("Alert: Spawners", () -> c.alertSpawners, v -> c.alertSpawners = v),
                 toggle("Alert: Stashes", () -> c.alertStash, v -> c.alertStash = v),
                 toggle("Alert: Bases", () -> c.alertBases, v -> c.alertBases = v)),
+            module("Session Timer", () -> c.timerEnabled, v -> c.timerEnabled = v,
+                keybind("Stopwatch Start / Stop Key", ChunkFinderClient::stopwatchKey),
+                keybind("Stopwatch Reset Key", ChunkFinderClient::stopwatchResetKey),
+                toggle("Time Online", () -> c.timerShowSession, v -> c.timerShowSession = v),
+                toggle("Stopwatch", () -> c.timerShowStopwatch, v -> c.timerShowStopwatch = v),
+                toggle("Computer Clock", () -> c.timerShowClock, v -> c.timerShowClock = v)),
+            module("Player Logger", () -> c.playerLogEnabled, v -> c.playerLogEnabled = v,
+                toggle("Show List", () -> c.playerLogShowList, v -> c.playerLogShowList = v),
+                slider("List Lines", 2, 15, "", () -> c.playerLogLines, v -> c.playerLogLines = v),
+                toggle("Chat: Player Came Into Range", () -> c.playerLogChatEnter, v -> c.playerLogChatEnter = v),
+                toggle("Chat: Player Left Range", () -> c.playerLogChatLeave, v -> c.playerLogChatLeave = v)),
+            module("Armor HUD", () -> c.armorEnabled, v -> c.armorEnabled = v,
+                slider("Size", 50, 250, "%", () -> c.armorScale, v -> c.armorScale = v),
+                toggle("Side By Side", () -> c.armorHorizontal, v -> c.armorHorizontal = v),
+                toggle("Durability Numbers (1850/2031)", () -> c.armorNumber, v -> c.armorNumber = v),
+                toggle("Durability Percent", () -> c.armorText, v -> c.armorText = v),
+                toggle("Durability Bar", () -> c.armorBar, v -> c.armorBar = v),
+                toggle("Show Hand Items", () -> c.armorHands, v -> c.armorHands = v),
+                toggle("Show Empty Slots", () -> c.armorShowEmpty, v -> c.armorShowEmpty = v),
+                toggle("Background", () -> c.armorBackground, v -> c.armorBackground = v)),
+            module("Entity ESP", () -> c.entityEspEnabled, v -> c.entityEspEnabled = v,
+                slider("Range", 8, 512, "m", () -> c.entityEspRange, v -> c.entityEspRange = v),
+                toggle("Item Frames (With Items)", () -> c.entityEspFrames, v -> c.entityEspFrames = v),
+                toggle("Armor Stands", () -> c.entityEspStands, v -> c.entityEspStands = v),
+                toggle("Chest Boats / Storage Carts / TNT", () -> c.entityEspVehicles, v -> c.entityEspVehicles = v),
+                toggle("End Crystals", () -> c.entityEspCrystals, v -> c.entityEspCrystals = v),
+                toggle("Filled", () -> c.entityEspFill, v -> c.entityEspFill = v),
+                toggle("Labels", () -> c.entityEspLabels, v -> c.entityEspLabels = v)),
             module("Item ESP", () -> c.itemEspEnabled, v -> c.itemEspEnabled = v,
                 slider("Range", 8, 512, "m", () -> c.itemEspRange, v -> c.itemEspRange = v),
                 toggle("Show All Items", () -> c.itemEspAll, v -> c.itemEspAll = v),
@@ -396,11 +442,11 @@ public class PharaohScreen extends Screen {
         c.fill((int) (x + r), y, (int) (x + w - r), y + h, color);
     }
 
-    private static void pill(DrawContext c, int x, int y, boolean on, int col) {
-        // round switch: blue when on, white when off
-        capsule(c, x - 1, y - 1, 34, 20, on ? 0xFF9CC8FF : 0xFFFFFFFF);
-        capsule(c, x, y, 32, 18, on ? 0xFF2F7BFF : 0xFFDDE6F5);
-        disc(c, on ? x + 23 : x + 9, y + 9, 7f, on ? 0xFFFFFFFF : 0xFF2F7BFF);
+    private static void pill(DrawContext c, int x, int y, float t, int col) {
+        // round switch: blue when on, white when off, the knob slides
+        capsule(c, x - 1, y - 1, 34, 20, mix(0xFF9CC8FF, 0xFFFFFFFF, t));
+        capsule(c, x, y, 32, 18, mix(0xFF2F7BFF, 0xFFDDE6F5, t));
+        disc(c, x + 9 + 14 * t, y + 9, 7f, mix(0xFFFFFFFF, 0xFF2F7BFF, t));
     }
 
     private static void plusButton(DrawContext c, int x, int y, boolean open) {
@@ -568,9 +614,19 @@ public class PharaohScreen extends Screen {
     @Override
     public void render(DrawContext c, int mx, int my, float delta) {
         try {
+            long nowNs = System.nanoTime();
+            dt = Math.min(0.05f, (nowNs - lastFrame) / 1_000_000_000f);
+            lastFrame = nowNs;
+            float p = Math.min(1f, (System.currentTimeMillis() - openedAt) / 230f);
+            openE = 1f - (1f - p) * (1f - p) * (1f - p);
             c.getMatrices().push();
             try {
                 c.getMatrices().scale(1f / d, 1f / d, 1f);
+                float cx = wx + ww / 2f, cy = wy + wh / 2f;
+                c.getMatrices().translate(cx, cy + (1f - openE) * 14f, 0f);
+                float sc = 0.95f + 0.05f * openE;
+                c.getMatrices().scale(sc, sc, 1f);
+                c.getMatrices().translate(-cx, -cy, 0f);
                 renderInner(c, (int) (mx * d), (int) (my * d), delta);
             } finally {
                 c.getMatrices().pop();
@@ -595,7 +651,7 @@ public class PharaohScreen extends Screen {
     private void renderInner(DrawContext c, int mx, int my, float delta) {
         ChunkFinderConfig cfg = ChunkFinderConfig.INSTANCE;
         hits.clear();
-        c.fill(0, 0, vw, vh, 0x99060504);
+        c.fill(-vw, -vh, vw * 2, vh * 2, (((int) (0x99 * openE)) << 24) | 0x060504);
 
         // window
         round(c, wx - 1, wy - 1, wx + ww + 1, wy + wh + 1, 0xFF4A3A16, 7);
@@ -676,13 +732,16 @@ public class PharaohScreen extends Screen {
         int top = wy + HEADER + 40;
         int bottom = wy + wh - 10;
         List<Module> mods = shown();
-        int y = top - scroll;
+        if (Math.abs(scroll - scrollShown) < 0.5f) scrollShown = scroll;
+        else scrollShown += (scroll - scrollShown) * Math.min(1f, dt * 18f);
+        int shownScroll = Math.round(scrollShown);
+        int y = top - shownScroll;
         int colw = (cw - 8) / 2;
         int col = 0;
         int rowH = 0;
         c.enableScissor(x0 - 2, top, x0 + cw + 2, bottom);
         for (Module m : mods) {
-            if (m.open) {
+            if (m.open || openAnim.getOrDefault(m, 0f) > 0.02f) {
                 if (col == 1) { y += rowH + 8; col = 0; rowH = 0; }
                 int h = drawCard(c, m, x0, y, cw, mx, my, top, bottom);
                 y += h + 8;
@@ -695,7 +754,7 @@ public class PharaohScreen extends Screen {
             }
         }
         if (col == 1) y += rowH + 8;
-        int contentH = y - (top - scroll);
+        int contentH = y - (top - shownScroll);
         c.disableScissor();
         if (mods.isEmpty()) {
             String msg = tab == 1 ? "No favorites yet. Click the star on a module." : "No modules found.";
@@ -721,7 +780,9 @@ public class PharaohScreen extends Screen {
         boolean on = m.on.getAsBoolean();
         int col = m.panel != null ? m.panel.color : ACCENT;
         int bright = mix(col, 0xFFFFFFFF, 0.5f);
-        int h = CARD + (m.open ? m.settings.size() * ROW + 6 : 0);
+        float oa = anim(openAnim, m, m.open ? 1f : 0f, 16f);
+        int h = CARD + Math.round((m.settings.size() * ROW + 6) * oa);
+        float swT = anim(swAnim, m, on ? 1f : 0f, 14f);
         if (y + h < top || y > bottom) {
             // off screen: still make the hits line up by skipping them
             return h;
@@ -729,9 +790,10 @@ public class PharaohScreen extends Screen {
 
         addHit(3, m, null, x, y, w - 86, CARD, top, bottom);
         boolean hov = mx >= x && mx < x + w && my >= y && my < y + CARD && my >= top && my < bottom;
-        round(c, x, y, x + w, y + h, on ? mix(col, 0xFF4A3A16, 0.55f) : 0xFF4A3A16, 7);
-        round(c, x + 1, y + 1, x + w - 1, y + h - 1, hov ? 0xFF1D180E : 0xFF14110B, 6);
-        if (on) round(c, x, y + 12, x + 3, y + CARD - 12, col, 1);
+        round(c, x, y, x + w, y + h, mix(mix(col, 0xFF4A3A16, 0.55f), 0xFF4A3A16, swT), 7);
+        float hvT = anim(hovAnim, m, hov ? 1f : 0f, 14f);
+        round(c, x + 1, y + 1, x + w - 1, y + h - 1, mix(0xFF1D180E, 0xFF14110B, hvT), 6);
+        if (swT > 0.3f) round(c, x, y + 12, x + 3, y + CARD - 12, col, 1);
 
         c.drawTextWithShadow(this.textRenderer, ui(m.name).styled(st -> st.withFont(BOLD_FONT)), x + 14, y + 8, 0xFFFFFFFF);
 
@@ -754,11 +816,12 @@ public class PharaohScreen extends Screen {
         boolean fav = isFavorite(m);
         star(c, x + w - 70, y + 13, fav ? 0xFFFFC21A : 0xFFC9BC94);
         addHit(2, m, null, x + w - 74, y + 8, 22, 26, top, bottom);
-        pill(c, x + w - 42, y + 12, on, col);
+        pill(c, x + w - 42, y + 12, swT, col);
         addHit(0, m, null, x + w - 46, y + 8, 40, 24, top, bottom);
 
         // settings
-        if (m.open) {
+        if (oa > 0.01f) {
+            c.enableScissor(x, y + CARD, x + w, y + h);
             int sy = y + CARD;
             c.fill(x + 10, sy - 1, x + w - 10, sy, alpha(col, 0x55));
             for (Setting s : m.settings) {
@@ -794,13 +857,15 @@ public class PharaohScreen extends Screen {
                 } else {
                     boolean sOn = s.get.getAsBoolean();
                     c.drawTextWithShadow(this.textRenderer, ui(trim(s.label, w - 60)), lx, sy + 3, sOn ? TEXT : DIM);
-                    round(c, x + w - 32, sy + 3, x + w - 14, sy + 12, sOn ? col : 0xFF2E2718, 4);
-                    int kx = sOn ? x + w - 23 : x + w - 30;
+                    float stT = anim(swAnim, s, sOn ? 1f : 0f, 16f);
+                    round(c, x + w - 32, sy + 3, x + w - 14, sy + 12, mix(col, 0xFF2E2718, stT), 4);
+                    int kx = Math.round(x + w - 30 + 7 * stT);
                     round(c, kx, sy + 5, kx + 5, sy + 10, 0xFFFFFFFF, 2);
                 }
-                addHit(4, m, s, x, sy, w, ROW, top, bottom);
+                if (oa > 0.98f) addHit(4, m, s, x, sy, w, ROW, top, bottom);
                 sy += ROW;
             }
+            c.disableScissor();
         }
         return h;
     }
@@ -834,7 +899,7 @@ public class PharaohScreen extends Screen {
             // the staff list can be dragged around while the menu is open (when it is outside the menu window)
             boolean inWindow = mx * d >= wx && mx * d < wx + ww && my * d >= wy && my * d < wy + wh;
             if (button == 0 && !inWindow) {
-                int[][] boxes = {StaffTracker.BOUNDS, RegionMap.BOUNDS, FpsBar.BOUNDS};
+                int[][] boxes = {StaffTracker.BOUNDS, RegionMap.BOUNDS, FpsBar.BOUNDS, PlayerLog.BOUNDS, ArmorHud.BOUNDS};
                 for (int i = 0; i < boxes.length; i++) {
                     int[] b = boxes[i];
                     if (b[2] > 0 && mx >= b[0] && mx < b[0] + b[2] && my >= b[1] && my < b[1] + b[3]) {
@@ -965,9 +1030,15 @@ public class PharaohScreen extends Screen {
                 } else if (dragHud == 2) {
                     ChunkFinderConfig.INSTANCE.regionMapX = (int) mx - hudOffX;
                     ChunkFinderConfig.INSTANCE.regionMapY = (int) my - hudOffY;
-                } else {
+                } else if (dragHud == 3) {
                     ChunkFinderConfig.INSTANCE.fpsX = (int) mx - hudOffX;
                     ChunkFinderConfig.INSTANCE.fpsY = (int) my - hudOffY;
+                } else if (dragHud == 4) {
+                    ChunkFinderConfig.INSTANCE.playerLogX = (int) mx - hudOffX;
+                    ChunkFinderConfig.INSTANCE.playerLogY = (int) my - hudOffY;
+                } else {
+                    ChunkFinderConfig.INSTANCE.armorX = (int) mx - hudOffX;
+                    ChunkFinderConfig.INSTANCE.armorY = (int) my - hudOffY;
                 }
                 return true;
             }
@@ -1016,6 +1087,17 @@ public class PharaohScreen extends Screen {
             if (!inWin && rb[2] > 0 && rawX >= rb[0] && rawX < rb[0] + rb[2] && rawY >= rb[1] && rawY < rb[1] + rb[3]) {
                 ChunkFinderConfig cfg = ChunkFinderConfig.INSTANCE;
                 cfg.regionMapCell = Math.max(6, Math.min(30, cfg.regionMapCell + (vertical > 0 ? 1 : -1)));
+                ChunkFinderConfig.save();
+                return true;
+            }
+        }
+        {
+            // scroll over the armor HUD (outside the menu window) to make it bigger or smaller
+            int[] ab = ArmorHud.BOUNDS;
+            boolean inWin2 = rawX * d >= wx && rawX * d < wx + ww && rawY * d >= wy && rawY * d < wy + wh;
+            if (!inWin2 && ab[2] > 0 && rawX >= ab[0] && rawX < ab[0] + ab[2] && rawY >= ab[1] && rawY < ab[1] + ab[3]) {
+                ChunkFinderConfig cfg2 = ChunkFinderConfig.INSTANCE;
+                cfg2.armorScale = Math.max(50, Math.min(250, cfg2.armorScale + (vertical > 0 ? 10 : -10)));
                 ChunkFinderConfig.save();
                 return true;
             }

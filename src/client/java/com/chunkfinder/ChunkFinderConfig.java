@@ -99,6 +99,43 @@ public class ChunkFinderConfig {
     public boolean alertSpawners = true;
     public boolean alertBases = true;
 
+    // ---------------- Player Logger / Armor HUD ----------------
+    public boolean playerLogEnabled = false;
+    public boolean playerLogShowList = true;
+    public boolean playerLogChatEnter = true;
+    public boolean playerLogChatLeave = true;
+    public int playerLogLines = 6;
+    public int playerLogX = 4;
+    public int playerLogY = 120;
+
+    public boolean armorEnabled = false;
+    public int armorScale = 100;
+    public int armorX = 4;
+    public int armorY = 200;
+    public boolean armorHorizontal = false;
+    public boolean armorBar = true;
+    public boolean armorText = true;
+    public boolean armorNumber = true;
+    public boolean armorHands = false;
+    public boolean armorShowEmpty = false;
+    public boolean armorBackground = true;
+
+    // ---------------- Session Timer ----------------
+    public boolean timerEnabled = false;
+    public boolean timerShowSession = true;
+    public boolean timerShowStopwatch = true;
+    public boolean timerShowClock = false;
+
+    // ---------------- Entity ESP ----------------
+    public boolean entityEspEnabled = false;
+    public int entityEspRange = 128;
+    public boolean entityEspFrames = true;
+    public boolean entityEspStands = true;
+    public boolean entityEspVehicles = true;
+    public boolean entityEspCrystals = true;
+    public boolean entityEspLabels = true;
+    public boolean entityEspFill = true;
+
     // ---------------- Item ESP ----------------
     public boolean itemEspEnabled = false;
     public int itemEspRange = 128;
@@ -224,6 +261,9 @@ public class ChunkFinderConfig {
         oreEspRange = clampInt(oreEspRange, 1, 12);
         baseEspSensitivity = clampInt(baseEspSensitivity, 3, 20);
         itemEspRange = clampInt(itemEspRange, 8, 512);
+        entityEspRange = clampInt(entityEspRange, 8, 512);
+        playerLogLines = clampInt(playerLogLines, 2, 15);
+        armorScale = clampInt(armorScale, 50, 250);
         spectatorRange = clampInt(spectatorRange, 4, 128);
         spectatorHeadPercent = clampInt(spectatorHeadPercent, 10, 100);
         spectatorPopupSeconds = clampInt(spectatorPopupSeconds, 1, 10);

@@ -13,10 +13,21 @@ public final class FpsBar {
 
     public static void render(DrawContext ctx, MinecraftClient mc) {
         ChunkFinderConfig cfg = ChunkFinderConfig.INSTANCE;
-        if (!cfg.fpsEnabled) return;
+        BOUNDS[2] = 0;
+        if (!cfg.fpsEnabled && !cfg.timerEnabled) return;
 
-        String text = mc.getCurrentFps() + " FPS";
-        int w = 4 + 16 + 5 + mc.textRenderer.getWidth(text) + 6;
+        java.util.List<String> parts = new java.util.ArrayList<>();
+        java.util.List<Integer> cols = new java.util.ArrayList<>();
+        if (cfg.fpsEnabled) {
+            parts.add(mc.getCurrentFps() + " FPS");
+            cols.add(0xFFF4ECD6);
+        }
+        SessionTimer.segments(parts, cols);
+
+        int sep = mc.textRenderer.getWidth(" | ");
+        int textW = 0;
+        for (int i = 0; i < parts.size(); i++) textW += mc.textRenderer.getWidth(parts.get(i)) + (i > 0 ? sep : 0);
+        int w = 4 + 16 + 5 + textW + 6;
         int h = 20;
         int x = Math.max(0, Math.min(cfg.fpsX, mc.getWindow().getScaledWidth() - w));
         int y = Math.max(0, Math.min(cfg.fpsY, mc.getWindow().getScaledHeight() - h));
@@ -35,6 +46,14 @@ public final class FpsBar {
         LogoRenderer.draw(ctx, 0, 0);
         ctx.getMatrices().pop();
 
-        ctx.drawTextWithShadow(mc.textRenderer, Text.literal(text), x + 27, y + 6, 0xFFF4ECD6);
+        int tx = x + 27;
+        for (int i = 0; i < parts.size(); i++) {
+            if (i > 0) {
+                ctx.drawTextWithShadow(mc.textRenderer, Text.literal(" | "), tx, y + 6, 0xFFE0A526);
+                tx += sep;
+            }
+            ctx.drawTextWithShadow(mc.textRenderer, Text.literal(parts.get(i)), tx, y + 6, cols.get(i));
+            tx += mc.textRenderer.getWidth(parts.get(i));
+        }
     }
 }

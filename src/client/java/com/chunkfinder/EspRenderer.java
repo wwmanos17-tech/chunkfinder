@@ -61,6 +61,7 @@ public class EspRenderer {
         OreEsp.collect(boxes, lines, cam);
         BaseEsp.collect(boxes, lines, cam);
         ItemEsp.collect(boxes, lines, cam);
+        EntityEsp.collect(boxes, lines, cam);
         if (boxes.isEmpty() && lines.isEmpty()) return;
 
         Matrix4f m = ms.peek().getPositionMatrix();
