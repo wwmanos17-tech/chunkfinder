@@ -3,13 +3,16 @@ package com.chunkfinder;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.sound.PositionedSoundInstance;
 import net.minecraft.sound.SoundEvent;
-import net.minecraft.sound.SoundEvents;
+import net.minecraft.util.Identifier;
 
 /** Soft click and chime sounds for the menu, with a volume setting and an off switch. */
 public final class MenuSounds {
     private MenuSounds() {}
 
     private static long lastTick = 0;
+    // built from the plain sound names, so it does not matter how the game stores them internally
+    private static final SoundEvent CLICK = SoundEvent.of(Identifier.ofVanilla("ui.button.click"));
+    private static final SoundEvent CHIME = SoundEvent.of(Identifier.ofVanilla("block.amethyst_block.chime"));
 
     private static void play(SoundEvent e, float pitch, float volume) {
         ChunkFinderConfig c = ChunkFinderConfig.INSTANCE;
@@ -23,27 +26,27 @@ public final class MenuSounds {
     }
 
     public static void open() {
-        play(SoundEvents.BLOCK_AMETHYST_BLOCK_CHIME.value(), 1.6f, 0.45f);
-        play(SoundEvents.UI_BUTTON_CLICK.value(), 1.5f, 0.35f);
+        play(CHIME, 1.6f, 0.45f);
+        play(CLICK, 1.5f, 0.35f);
     }
 
     public static void close() {
-        play(SoundEvents.UI_BUTTON_CLICK.value(), 0.8f, 0.45f);
+        play(CLICK, 0.8f, 0.45f);
     }
 
     /** Switching a tab or a category. */
     public static void tab() {
-        play(SoundEvents.UI_BUTTON_CLICK.value(), 1.25f, 0.4f);
+        play(CLICK, 1.25f, 0.4f);
     }
 
     /** Opening or closing a module card, pressing a button. */
     public static void click() {
-        play(SoundEvents.UI_BUTTON_CLICK.value(), 1.0f, 0.5f);
+        play(CLICK, 1.0f, 0.5f);
     }
 
     public static void toggle(boolean on) {
-        if (on) play(SoundEvents.BLOCK_AMETHYST_BLOCK_CHIME.value(), 1.75f, 0.5f);
-        else play(SoundEvents.UI_BUTTON_CLICK.value(), 0.7f, 0.5f);
+        if (on) play(CHIME, 1.75f, 0.5f);
+        else play(CLICK, 0.7f, 0.5f);
     }
 
     /** A small tick while dragging a slider; the pitch rises with the value. */
@@ -51,6 +54,6 @@ public final class MenuSounds {
         long now = System.currentTimeMillis();
         if (now - lastTick < 55) return;
         lastTick = now;
-        play(SoundEvents.UI_BUTTON_CLICK.value(), 0.8f + 0.9f * Math.max(0f, Math.min(1f, ratio)), 0.25f);
+        play(CLICK, 0.8f + 0.9f * Math.max(0f, Math.min(1f, ratio)), 0.25f);
     }
 }
