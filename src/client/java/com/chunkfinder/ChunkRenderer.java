@@ -51,6 +51,11 @@ public class ChunkRenderer {
                 double sy = y == null ? cfg.renderY : y;
                 double x1 = pos.getStartX();
                 double z1 = pos.getStartZ();
+                long[] ls = LightFinder.SPOTS.get(pos);
+                if (cfg.exactSpots && ls != null && ls.length > 0) {
+                    for (long bl : ls) addSpot(boxes, bl, l[0] / 255f, l[1] / 255f, l[2] / 255f, 0.30f);
+                    continue;
+                }
                 boxes.add(new EspRenderer.Box(x1, sy, z1, x1 + 16, sy + 0.02, z1 + 16, l[0] / 255f, l[1] / 255f, l[2] / 255f, 0.25f));
             }
         }
@@ -64,6 +69,14 @@ public class ChunkRenderer {
                 if (levels == null || levels.length == 0) levels = new int[]{cfg.renderY};
                 double x1 = pos.getStartX();
                 double z1 = pos.getStartZ();
+                long[] spots = SusScanner.SPOTS.get(pos);
+                if (cfg.exactSpots && spots != null && spots.length > 0) {
+                    int hi = SusScanner.HI.getOrDefault(pos, 0);
+                    for (int i = 0; i < spots.length; i++) {
+                        addSpot(boxes, spots[i], s[0] / 255f, s[1] / 255f, s[2] / 255f, i < hi ? 0.40f : 0.20f);
+                    }
+                    continue;
+                }
                 for (int y : levels) {
                     boxes.add(new EspRenderer.Box(x1, y, z1, x1 + 16, y + 0.02, z1 + 16,
                         s[0] / 255f, s[1] / 255f, s[2] / 255f, cfg.susAlpha / 100f));
@@ -78,10 +91,22 @@ public class ChunkRenderer {
                     double by = (lv != null && lv.length > 0) ? lv[0] : cfg.renderY;
                     int[] col = SusScanner.strengthColor(rk.get(0).getValue(), need, cfg.susColor);
                     Vec3d st = Proj.tracerStart(mc);
-                    lines.add(new EspRenderer.Line(st.x, st.y, st.z, best.getStartX() + 8, by, best.getStartZ() + 8,
+                    double tx = best.getStartX() + 8, tz = best.getStartZ() + 8;
+                    long[] bs = SusScanner.SPOTS.get(best);
+                    if (cfg.exactSpots && bs != null && bs.length > 0) {
+                        net.minecraft.util.math.BlockPos bp = net.minecraft.util.math.BlockPos.fromLong(bs[0]);
+                        tx = bp.getX() + 0.5; by = bp.getY() + 0.5; tz = bp.getZ() + 0.5;
+                    }
+                    lines.add(new EspRenderer.Line(st.x, st.y, st.z, tx, by, tz,
                         col[0] / 255f, col[1] / 255f, col[2] / 255f));
                 }
             }
         }
+    }
+
+    private static void addSpot(List<EspRenderer.Box> boxes, long packed, float r, float g, float b, float fill) {
+        net.minecraft.util.math.BlockPos p = net.minecraft.util.math.BlockPos.fromLong(packed);
+        boxes.add(new EspRenderer.Box(p.getX() - 0.02, p.getY() - 0.02, p.getZ() - 0.02,
+            p.getX() + 1.02, p.getY() + 1.02, p.getZ() + 1.02, r, g, b, fill));
     }
 }

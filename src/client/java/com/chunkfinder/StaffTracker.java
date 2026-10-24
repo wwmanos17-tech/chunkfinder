@@ -175,8 +175,7 @@ public class StaffTracker {
         BOUNDS[1] = y;
         BOUNDS[2] = w;
         BOUNDS[3] = h;
-        ctx.fill(x, y, x + w, y + h, 0xB0101018);
-        ctx.fill(x, y, x + 2, y + h, 0xFFE0A526);
+        HudPanel.draw(ctx, x, y, w, h);
         ctx.drawTextWithShadow(mc.textRenderer, Text.literal("STAFF " + list.size()), x + 6, y + 3, 0xFF8A8A96);
         int ry = y + 14;
         for (int i = 0; i < shown; i++) {

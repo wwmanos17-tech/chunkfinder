@@ -30,6 +30,7 @@ public final class ActivityScanner {
     public static final class State {
         public int parts, active, storage;
         public double ySum;
+        public long[] spots = new long[0];
         public long scannedAt;
         public long eventAt = -1000000;
         public String eventText = "";
@@ -73,8 +74,19 @@ public final class ActivityScanner {
         return false;
     }
 
+    /** Parts worth marking one by one (wire, torches, buttons and plates are everywhere and would only clutter). */
+    private static boolean isKey(BlockState s) {
+        return s.isOf(Blocks.PISTON) || s.isOf(Blocks.STICKY_PISTON) || s.isOf(Blocks.OBSERVER) || s.isOf(Blocks.DROPPER)
+            || s.isOf(Blocks.DISPENSER) || s.isOf(Blocks.HOPPER) || s.isOf(Blocks.COMPARATOR) || s.isOf(Blocks.REPEATER)
+            || s.isOf(Blocks.REDSTONE_LAMP) || s.isOf(Blocks.NOTE_BLOCK) || s.isOf(Blocks.REDSTONE_BLOCK)
+            || s.isOf(Blocks.SCULK_SENSOR) || s.isOf(Blocks.CALIBRATED_SCULK_SENSOR) || s.isOf(Blocks.CRAFTER)
+            || s.isOf(Blocks.TNT) || s.isOf(Blocks.DAYLIGHT_DETECTOR) || s.isOf(Blocks.TRIPWIRE_HOOK);
+    }
+
     private static State scan(WorldChunk chunk) {
         State st = new State();
+        java.util.List<Long> sp = new java.util.ArrayList<>();
+        int csx = chunk.getPos().getStartX(), csz = chunk.getPos().getStartZ();
         ChunkSection[] secs = chunk.getSectionArray();
         for (int i = 0; i < secs.length; i++) {
             ChunkSection sec = secs[i];
@@ -88,6 +100,7 @@ public final class ActivityScanner {
                             st.parts++;
                             st.ySum += y0 + y;
                             if (isActive(bs)) st.active++;
+                            if (sp.size() < 40 && isKey(bs)) sp.add(net.minecraft.util.math.BlockPos.asLong(csx + x, y0 + y, csz + z));
                         }
                     }
                 }
@@ -97,6 +110,8 @@ public final class ActivityScanner {
             if (be instanceof ChestBlockEntity || be instanceof BarrelBlockEntity || be instanceof ShulkerBoxBlockEntity
                 || be instanceof EnderChestBlockEntity) st.storage++;
         }
+        st.spots = new long[sp.size()];
+        for (int i = 0; i < st.spots.length; i++) st.spots[i] = sp.get(i);
         return st;
     }
 
@@ -194,12 +209,25 @@ public final class ActivityScanner {
             boolean recent = ticks - s.eventAt < 600;
             if (s.parts >= cfg.activityRedstoneMin && cfg.activityStatic) {
                 boolean on = s.active > 0;
-                boxes.add(new EspRenderer.Box(x1, y, z1, x1 + 16, y + 0.02, z1 + 16,
-                    on ? 1f : 1f, on ? 0.9f : 0.55f, on ? 0.3f : 0.1f, on ? 0.30f : 0.16f));
+                if (s.spots.length > 0) {
+                    for (long bl : s.spots) {
+                        net.minecraft.util.math.BlockPos bp = net.minecraft.util.math.BlockPos.fromLong(bl);
+                        boxes.add(new EspRenderer.Box(bp.getX() - 0.02, bp.getY() - 0.02, bp.getZ() - 0.02,
+                            bp.getX() + 1.02, bp.getY() + 1.02, bp.getZ() + 1.02,
+                            1f, on ? 0.9f : 0.55f, on ? 0.3f : 0.1f, on ? 0.40f : 0.22f));
+                    }
+                } else {
+                    boxes.add(new EspRenderer.Box(x1, y, z1, x1 + 16, y + 0.02, z1 + 16,
+                        1f, on ? 0.9f : 0.55f, on ? 0.3f : 0.1f, on ? 0.30f : 0.16f));
+                }
             }
             if (recent) {
-                boxes.add(new EspRenderer.Box(x1, y - 1, z1, x1 + 16, y + 6, z1 + 16, 0.3f, 1f, 1f, 0.10f));
-                lines.add(new EspRenderer.Line(x1 + 8, y + 6, z1 + 8, x1 + 8, y + 70, z1 + 8, 0.3f, 1f, 1f));
+                if (s.spots.length > 0) {
+                    net.minecraft.util.math.BlockPos bp = net.minecraft.util.math.BlockPos.fromLong(s.spots[0]);
+                    lines.add(new EspRenderer.Line(bp.getX() + 0.5, bp.getY() + 1, bp.getZ() + 0.5, bp.getX() + 0.5, bp.getY() + 60, bp.getZ() + 0.5, 0.3f, 1f, 1f));
+                } else {
+                    lines.add(new EspRenderer.Line(x1 + 8, y + 6, z1 + 8, x1 + 8, y + 70, z1 + 8, 0.3f, 1f, 1f));
+                }
             }
         }
     }

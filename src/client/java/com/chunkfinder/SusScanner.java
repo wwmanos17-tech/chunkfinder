@@ -28,7 +28,6 @@ import java.util.concurrent.ConcurrentHashMap;
  * Clues (Overworld only, underground only so villages are ignored):
  *  - blocks that never generate in caves (glass, ladders, doors, pistons, TNT ...)
  *  - villagers underground (trading halls), not villagers standing on the surface
- *  - perfectly straight 1x2 tunnels, 12 or more blocks long, which look like pickaxe digging
  * Chunks are scored once and cached, a couple per tick, so it does not cause lag.
  */
 public class SusScanner {
@@ -37,6 +36,9 @@ public class SusScanner {
     /** Heights where the clues were found, per chunk, so the chunk can be drawn as flat slabs at those heights. */
     public static final Map<ChunkPos, int[]> LEVELS = new ConcurrentHashMap<>();
     private static final Set<ChunkPos> NOTIFIED = new HashSet<>();
+    /** Exact block positions (packed BlockPos longs) of the clues in each chunk. The first HI entries are the important ones (storage, villagers). */
+    public static final Map<ChunkPos, long[]> SPOTS = new ConcurrentHashMap<>();
+    public static final Map<ChunkPos, Integer> HI = new ConcurrentHashMap<>();
 
     private record Cand(ChunkPos pos, boolean scanned, int dist2) {}
 
@@ -48,11 +50,13 @@ public class SusScanner {
         STALE.clear();
         FOUND.clear();
         SCORES.clear();
+        SPOTS.clear();
+        HI.clear();
         NOTIFIED.clear();
     }
 
     private static boolean isSusBlock(BlockState s) {
-        return s.isOf(Blocks.GLASS) || s.isOf(Blocks.GLASS_PANE) || s.isOf(Blocks.LADDER)
+        return s.isOf(Blocks.GLASS) || s.isOf(Blocks.GLASS_PANE)
             || s.isOf(Blocks.SMOOTH_STONE) || s.isOf(Blocks.COBBLESTONE_STAIRS) || s.isOf(Blocks.COBBLESTONE_SLAB)
             || s.isOf(Blocks.CRAFTING_TABLE) || s.isOf(Blocks.OAK_DOOR) || s.isOf(Blocks.IRON_DOOR)
             || s.isOf(Blocks.REDSTONE_TORCH) || s.isOf(Blocks.REPEATER) || s.isOf(Blocks.PISTON)
@@ -149,6 +153,9 @@ public class SusScanner {
     private static int score(MinecraftClient mc, WorldChunk chunk) {
         int score = 0;
         java.util.List<Integer> ys = new java.util.ArrayList<>();
+        java.util.List<Long> hi = new java.util.ArrayList<>();
+        java.util.List<Long> lo = new java.util.ArrayList<>();
+        int csx = chunk.getPos().getStartX(), csz = chunk.getPos().getStartZ();
 
         // natural structures (ancient city, trial chamber, stronghold portal room) look like bases, so they get discounted
         boolean natural = false;
@@ -177,6 +184,7 @@ public class SusScanner {
                             if (isSusBlock(s.getBlockState(lx, ly, lz))) {
                                 sum += sectionY * 16 + ly;
                                 n++;
+                                if (lo.size() < 60) lo.add(BlockPos.asLong(csx + lx, sectionY * 16 + ly, csz + lz));
                             }
                         }
                     }
@@ -196,6 +204,7 @@ public class SusScanner {
                 || be instanceof DispenserBlockEntity || be instanceof BrewingStandBlockEntity) {
                 storage++;
                 ys.add(be.getPos().getY());
+                if (hi.size() < 40) hi.add(be.getPos().asLong());
             }
         }
         score += Math.min(6, storage * 2);
@@ -213,18 +222,24 @@ public class SusScanner {
             if (v.getY() < top - 6) {
                 villagers++;
                 ys.add((int) v.getY());
+                if (hi.size() < 40) hi.add(BlockPos.asLong(v.getBlockX(), v.getBlockY(), v.getBlockZ()));
             }
         }
         if (villagers >= 1) score += 4;
         if (villagers >= 3) score += 3;
         if (villagers >= 6) score += 3;
 
-        // 2) perfectly straight 1x2 tunnels
-        score += Math.min(6, tunnels(mc, chunk, ys) * 3);
+        // 2) tunnels are ignored on purpose
+        // (tunnels no longer count: ordinary strip mining and caves made too many false alarms)
 
         if (natural) score = Math.max(0, score - 8);
 
         LEVELS.put(chunk.getPos(), cluster(ys));
+        long[] all = new long[hi.size() + lo.size()];
+        for (int i = 0; i < hi.size(); i++) all[i] = hi.get(i);
+        for (int i = 0; i < lo.size(); i++) all[hi.size() + i] = lo.get(i);
+        SPOTS.put(chunk.getPos(), all);
+        HI.put(chunk.getPos(), hi.size());
         return score;
     }
 

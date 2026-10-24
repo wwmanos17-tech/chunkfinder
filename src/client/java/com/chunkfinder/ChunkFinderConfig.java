@@ -18,6 +18,8 @@ public class ChunkFinderConfig {
     // ---------------- Module list (on-screen list of tools that are ON) ----------------
     /** Size of the menu in percent. */
     public int menuScale = 100;
+    public boolean menuSounds = true;
+    public int menuSoundVolume = 60;
     public boolean nameProtect = true;
     public String nameAlias = "Pharaoh";
     public boolean regionMapEnabled = true;
@@ -51,6 +53,8 @@ public class ChunkFinderConfig {
     public boolean susScoreColors = true;
     public boolean susLabels = true;
     public boolean susTracer = false;
+    /** Draw boxes on the exact blocks that gave a chunk away, instead of flat chunk-sized slabs. */
+    public boolean exactSpots = true;
     public int susListCount = 5;
     public boolean detectLight = true;
     /** Underground lights needed in a chunk before it is flagged (1..20). */
@@ -129,6 +133,11 @@ public class ChunkFinderConfig {
     public boolean timerShowSession = true;
     public boolean timerShowStopwatch = true;
     public boolean timerShowClock = false;
+
+    // ---------------- Chunk Data Check ----------------
+    public boolean checkEnabled = false;
+    public int checkX = 4;
+    public int checkY = 140;
 
     // ---------------- Activity Detector ----------------
     public boolean activityEnabled = false;
@@ -277,6 +286,8 @@ public class ChunkFinderConfig {
         entityEspRange = clampInt(entityEspRange, 8, 512);
         playerLogLines = clampInt(playerLogLines, 2, 15);
         activityRedstoneMin = clampInt(activityRedstoneMin, 2, 60);
+        checkX = clampInt(checkX, 0, 2000);
+        checkY = clampInt(checkY, 0, 2000);
         armorScale = clampInt(armorScale, 50, 250);
         spectatorRange = clampInt(spectatorRange, 4, 128);
         spectatorHeadPercent = clampInt(spectatorHeadPercent, 10, 100);
@@ -284,6 +295,7 @@ public class ChunkFinderConfig {
         spectatorCooldownMinutes = clampInt(spectatorCooldownMinutes, 0, 120);
         staffMaxRank = clampInt(staffMaxRank, 0, 99);
         menuScale = clampInt(menuScale, 60, 200);
+        menuSoundVolume = clampInt(menuSoundVolume, 0, 100);
         regionMapCell = clampInt(regionMapCell, 6, 30);
         susListCount = clampInt(susListCount, 1, 12);
         if (staffNames == null) staffNames = new String[0];

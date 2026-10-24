@@ -34,6 +34,7 @@ public class PharaohHud {
                 RegionMap.render(ctx, mc);
                 FpsBar.render(ctx, mc);
                 PlayerLog.render(ctx, mc);
+                ChunkDataCheck.render(ctx, mc);
                 ArmorHud.render(ctx, mc);
             } catch (Throwable t) {
                 ChunkFinderClient.LOGGER.error("Region map drawing failed", t);

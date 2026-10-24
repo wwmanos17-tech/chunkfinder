@@ -25,6 +25,8 @@ public class LightFinder {
     /** Average height of the lights in each chunk. */
     public static final Map<ChunkPos, Integer> LEVELS = new ConcurrentHashMap<>();
     private static final Map<ChunkPos, Integer> SCORES = new HashMap<>();
+    /** Exact block positions of the lights in each chunk. */
+    public static final Map<ChunkPos, long[]> SPOTS = new ConcurrentHashMap<>();
     private static final Set<ChunkPos> STALE = new HashSet<>();
     private static final Set<ChunkPos> NOTIFIED = new HashSet<>();
     private static int age = 0;
@@ -32,6 +34,7 @@ public class LightFinder {
     public static void clear() {
         FOUND.clear();
         SCORES.clear();
+        SPOTS.clear();
         LEVELS.clear();
         STALE.clear();
         NOTIFIED.clear();
@@ -39,8 +42,8 @@ public class LightFinder {
     }
 
     private static boolean isLight(BlockState s) {
-        return s.isOf(Blocks.TORCH) || s.isOf(Blocks.WALL_TORCH) || s.isOf(Blocks.SOUL_TORCH)
-            || s.isOf(Blocks.SOUL_WALL_TORCH) || s.isOf(Blocks.LANTERN) || s.isOf(Blocks.SOUL_LANTERN)
+        // plain torches are left out on purpose: every miner leaves them along ordinary tunnels
+        return s.isOf(Blocks.LANTERN) || s.isOf(Blocks.SOUL_LANTERN)
             || s.isOf(Blocks.GLOWSTONE) || s.isOf(Blocks.SEA_LANTERN) || s.isOf(Blocks.SHROOMLIGHT)
             || s.isOf(Blocks.JACK_O_LANTERN) || s.isOf(Blocks.CAMPFIRE) || s.isOf(Blocks.SOUL_CAMPFIRE)
             || s.isOf(Blocks.OCHRE_FROGLIGHT) || s.isOf(Blocks.VERDANT_FROGLIGHT) || s.isOf(Blocks.PEARLESCENT_FROGLIGHT)
@@ -50,6 +53,7 @@ public class LightFinder {
     private static int score(WorldChunk chunk) {
         int count = 0;
         long ySum = 0;
+        java.util.List<Long> spots = new java.util.ArrayList<>();
         ChunkSection[] sections = chunk.getSectionArray();
         for (int i = 0; i < sections.length; i++) {
             int sectionY = chunk.getBottomSectionCoord() + i;
@@ -63,12 +67,16 @@ public class LightFinder {
                         if (isLight(sec.getBlockState(lx, ly, lz))) {
                             count++;
                             ySum += sectionY * 16 + ly;
+                            if (spots.size() < 40) spots.add(net.minecraft.util.math.BlockPos.asLong(chunk.getPos().getStartX() + lx, sectionY * 16 + ly, chunk.getPos().getStartZ() + lz));
                         }
                     }
                 }
             }
         }
         if (count > 0) LEVELS.put(chunk.getPos(), (int) (ySum / count));
+        long[] arr = new long[spots.size()];
+        for (int i = 0; i < arr.length; i++) arr[i] = spots.get(i);
+        SPOTS.put(chunk.getPos(), arr);
         return count;
     }
 

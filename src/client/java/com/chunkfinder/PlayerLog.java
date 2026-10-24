@@ -106,8 +106,7 @@ public final class PlayerLog {
         int y = Math.max(0, Math.min(cfg.playerLogY, mc.getWindow().getScaledHeight() - h));
         BOUNDS[0] = x; BOUNDS[1] = y; BOUNDS[2] = w; BOUNDS[3] = h;
 
-        ctx.fill(x, y, x + w, y + h, 0xB0100E08);
-        ctx.fill(x, y, x + 2, y + h, 0xFFE0A526);
+        HudPanel.draw(ctx, x, y, w, h);
         ctx.drawTextWithShadow(mc.textRenderer, Text.literal(title), x + 6, y + 3, 0xFFF4ECD6);
         if (rows.isEmpty()) {
             ctx.drawTextWithShadow(mc.textRenderer, Text.literal("nobody yet"), x + 6, y + 14, 0xFF9A9078);

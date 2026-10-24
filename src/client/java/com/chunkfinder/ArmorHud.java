@@ -73,8 +73,7 @@ public final class ArmorHud {
         ctx.getMatrices().translate(x, y, 0f);
         ctx.getMatrices().scale(scale, scale, 1f);
         if (cfg.armorBackground) {
-            ctx.fill(0, 0, w, h, 0xB0100E08);
-            ctx.fill(0, 0, 2, h, 0xFFE0A526);
+            HudPanel.draw(ctx, 0, 0, w, h);
         }
         for (int i = 0; i < n; i++) {
             ItemStack s = items.get(i);

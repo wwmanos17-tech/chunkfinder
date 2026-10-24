@@ -96,22 +96,77 @@ public class PharaohScreen extends Screen {
     private int hudOffX, hudOffY;
     private float d = 1f;
     // smooth animations
-    private final java.util.IdentityHashMap<Object, Float> swAnim = new java.util.IdentityHashMap<>();
+    private final java.util.IdentityHashMap<Object, float[]> swAnim = new java.util.IdentityHashMap<>();
     private final java.util.IdentityHashMap<Object, Float> hovAnim = new java.util.IdentityHashMap<>();
-    private final java.util.IdentityHashMap<Object, Float> openAnim = new java.util.IdentityHashMap<>();
+    private final java.util.IdentityHashMap<Object, float[]> openAnim = new java.util.IdentityHashMap<>();
     private long lastFrame = System.nanoTime();
     private float dt = 0.016f;
     private final long openedAt = System.currentTimeMillis();
     private float openE = 0f;
-    private float scrollShown = 0f;
+    private float scrollShown = 0f, scrollVel = 0f;
+    private float tabPillXv = 0, tabPillWv = 0, catPillYv = 0;
+
+    private final java.util.IdentityHashMap<Object, Float> slAnim = new java.util.IdentityHashMap<>();
+    /** Animated position of every card in content space: x, y, width. */
+    private final java.util.IdentityHashMap<Object, float[]> cardPos = new java.util.IdentityHashMap<>();
+    private final java.util.IdentityHashMap<Object, Long> cardAppear = new java.util.IdentityHashMap<>();
+    private final float[] catHov = new float[24];
+    private final float[] tabHov = new float[4];
+    private final float[] btnHov = new float[3];
+    private float tabPillX = -1, tabPillW = 0, catPillY = -1, catPillA = 0, searchAnim = 0, barAlpha = 0;
+    private int lastPage = -1, lastMaxScroll = 0, lastContentH = 0, lastViewH = 1;
+    private long lastWheel = 0;
+    private boolean closing = false;
+    private boolean openSoundPlayed = false;
+    private int lastSliderValue = Integer.MIN_VALUE;
+    private long closeAt = 0;
+
+    /** Frame rate independent smoothing: the same speed at 30 fps and at 240 fps. */
+    private float k(float speed) {
+        return 1f - (float) Math.exp(-dt * speed);
+    }
+
+    private float step(float v, float target, float speed) {
+        v += (target - v) * k(speed);
+        return Math.abs(target - v) < 0.002f ? target : v;
+    }
+
+    /** Critically damped spring: starts gently, glides, and settles without overshoot, at any frame rate. */
+    private void spring(float[] s, float target, float omega) {
+        float x = s[0] - target, v = s[1];
+        float e = (float) Math.exp(-omega * dt);
+        float c2 = v + omega * x;
+        s[0] = target + (x + c2 * dt) * e;
+        s[1] = (v - omega * c2 * dt) * e;
+        if (Math.abs(s[0] - target) < 0.003f && Math.abs(s[1]) < 0.02f) { s[0] = target; s[1] = 0f; }
+    }
+
+    private float springAnim(java.util.IdentityHashMap<Object, float[]> map, Object key, float target, float omega) {
+        float[] s = map.get(key);
+        if (s == null) { s = new float[] {target, 0f}; map.put(key, s); }
+        spring(s, target, omega);
+        return s[0];
+    }
+
+    /** Spring on two slots of an array: value at pi, velocity at vi. */
+    private void springAt(float[] a, int pi, int vi, float target, float omega) {
+        float[] t = {a[pi], a[vi]};
+        spring(t, target, omega);
+        a[pi] = t[0];
+        a[vi] = t[1];
+    }
 
     private float anim(java.util.IdentityHashMap<Object, Float> map, Object key, float target, float speed) {
         Float cur = map.get(key);
-        float v = cur == null ? target : cur;
-        v += (target - v) * Math.min(1f, dt * speed);
-        if (Math.abs(target - v) < 0.003f) v = target;
+        float v = step(cur == null ? target : cur, target, speed);
         map.put(key, v);
         return v;
+    }
+
+    private static float easeOut(float t) {
+        t = Math.max(0f, Math.min(1f, t));
+        float u = 1f - t;
+        return 1f - u * u * u * u;
     }
     private int vw = 0, vh = 0;
 
@@ -270,6 +325,7 @@ public class PharaohScreen extends Screen {
                 toggle("Sus Chunk List", () -> c.susList, v -> c.susList = v),
                 toggle("Colour By Strength", () -> c.susScoreColors, v -> c.susScoreColors = v),
                 toggle("Labels On Strongest", () -> c.susLabels, v -> c.susLabels = v),
+                toggle("Exact Spots (No Flat Slabs)", () -> c.exactSpots, v -> c.exactSpots = v),
                 toggle("Tracer To Strongest", () -> c.susTracer, v -> c.susTracer = v),
                 slider("List Length", 1, 12, "", () -> c.susListCount, v -> c.susListCount = v),
                 toggle("Chat Alerts", () -> c.notify, v -> c.notify = v),
@@ -332,6 +388,9 @@ public class PharaohScreen extends Screen {
                 toggle("Show Redstone Chunks", () -> c.activityStatic, v -> c.activityStatic = v),
                 toggle("Labels", () -> c.activityLabels, v -> c.activityLabels = v),
                 toggle("Chat Alerts", () -> c.activityChat, v -> c.activityChat = v)),
+            module("Chunk Data Check", () -> c.checkEnabled, v -> c.checkEnabled = v,
+                slider("Panel X", 0, 600, "", () -> c.checkX, v -> c.checkX = v),
+                slider("Panel Y", 0, 400, "", () -> c.checkY, v -> c.checkY = v)),
             module("Entity ESP", () -> c.entityEspEnabled, v -> c.entityEspEnabled = v,
                 slider("Range", 8, 512, "m", () -> c.entityEspRange, v -> c.entityEspRange = v),
                 toggle("Item Frames (With Items)", () -> c.entityEspFrames, v -> c.entityEspFrames = v),
@@ -404,7 +463,9 @@ public class PharaohScreen extends Screen {
         PANELS.add(panel("Client", 0xFFE0A526,
             module("Menu", () -> true, v -> { },
                 keybind("Menu Key", ChunkFinderClient::menuKey),
-                slider("Menu Size (applies on release)", 60, 200, "%", () -> c.menuScale, v -> c.menuScale = v)),
+                slider("Menu Size (applies on release)", 60, 200, "%", () -> c.menuScale, v -> c.menuScale = v),
+                toggle("Menu Sounds", () -> c.menuSounds, v -> c.menuSounds = v),
+                slider("Sound Volume", 0, 100, "%", () -> c.menuSoundVolume, v -> c.menuSoundVolume = v)),
             module("Name Protector", () -> c.nameProtect, v -> c.nameProtect = v),
             module("Tool List", () -> c.showModuleList, v -> c.showModuleList = v)));
     }
@@ -460,11 +521,12 @@ public class PharaohScreen extends Screen {
         disc(c, x + 9 + 14 * t, y + 9, 7f, mix(0xFFFFFFFF, 0xFF2F7BFF, t));
     }
 
-    private static void plusButton(DrawContext c, int x, int y, boolean open) {
+    private static void plusButton(DrawContext c, int x, int y, float open) {
         round(c, x, y, x + 18, y + 18, 0xFFFFE08A, 4);
         round(c, x + 1, y + 1, x + 17, y + 17, 0xFF2A2314, 4);
         c.fill(x + 4, y + 8, x + 14, y + 10, 0xFFFFE08A);
-        if (!open) c.fill(x + 8, y + 4, x + 10, y + 14, 0xFFFFE08A);
+        int bar = Math.round(10 * (1f - open));
+        if (bar > 0) c.fill(x + 8, y + 9 - bar / 2, x + 10, y + 9 + (bar + 1) / 2, 0xFFFFE08A);
     }
 
     private static final String[] STAR = {
@@ -608,6 +670,7 @@ public class PharaohScreen extends Screen {
 
     @Override
     protected void init() {
+        if (!openSoundPlayed) { openSoundPlayed = true; MenuSounds.open(); }
         buildPanels();
         // Draw in finer units: one unit is about one real screen pixel per font pixel, so shapes and text are crisp.
         int s = this.client != null ? (int) Math.round(this.client.getWindow().getScaleFactor()) : 2;
@@ -628,14 +691,22 @@ public class PharaohScreen extends Screen {
             long nowNs = System.nanoTime();
             dt = Math.min(0.05f, (nowNs - lastFrame) / 1_000_000_000f);
             lastFrame = nowNs;
-            float p = Math.min(1f, (System.currentTimeMillis() - openedAt) / 230f);
-            openE = 1f - (1f - p) * (1f - p) * (1f - p);
+            long nowMs = System.currentTimeMillis();
+            if (closing) {
+                float q = (nowMs - closeAt) / 200f;
+                if (q >= 1f) { doClose(); return; }
+                openE = 1f - q * q * q;
+            } else {
+                float p = Math.min(1f, (nowMs - openedAt) / 380f);
+                float e = easeOut(p);
+                openE = Math.min(1f, e);
+            }
             c.getMatrices().push();
             try {
                 c.getMatrices().scale(1f / d, 1f / d, 1f);
                 float cx = wx + ww / 2f, cy = wy + wh / 2f;
-                c.getMatrices().translate(cx, cy + (1f - openE) * 14f, 0f);
-                float sc = 0.95f + 0.05f * openE;
+                c.getMatrices().translate(cx, cy + (1f - openE) * 18f, 0f);
+                float sc = 0.94f + 0.06f * openE;
                 c.getMatrices().scale(sc, sc, 1f);
                 c.getMatrices().translate(-cx, -cy, 0f);
                 renderInner(c, (int) (mx * d), (int) (my * d), delta);
@@ -645,7 +716,7 @@ public class PharaohScreen extends Screen {
         } catch (Throwable t) {
             ChunkFinderClient.LOGGER.error("Menu drawing failed, closing the menu", t);
             try { c.disableScissor(); } catch (Throwable ignored) { }
-            close();
+            doClose();
         }
     }
 
@@ -674,40 +745,71 @@ public class PharaohScreen extends Screen {
         LogoRenderer.draw(c, wx + 10, wy + 4);
         c.drawTextWithShadow(this.textRenderer, ui("PHARAOH").styled(st -> st.withFont(BOLD_FONT)), wx + 48, wy + 16, ACCENT);
 
-        // tabs
+        // tabs: the highlight slides from one tab to the next
+        {
+            int tx = tabX(tab), tw = uw(TABS[tab]) + 22;
+            if (tabPillX < 0) { tabPillX = tx; tabPillW = tw; }
+            float[] pxs = {tabPillX, tabPillXv}, pws = {tabPillW, tabPillWv};
+            spring(pxs, tx, 17f);
+            spring(pws, tw, 17f);
+            tabPillX = pxs[0]; tabPillXv = pxs[1]; tabPillW = pws[0]; tabPillWv = pws[1];
+            int pix = (int) Math.floor(tabPillX);
+            c.getMatrices().push();
+            c.getMatrices().translate(tabPillX - pix, 0f, 0f);
+            round(c, pix, wy + 9, pix + Math.round(tabPillW), wy + 31, 0xFF221C0F, 5);
+            c.getMatrices().pop();
+        }
         for (int i = 0; i < TABS.length; i++) {
             int tx = tabX(i);
             int tw = uw(TABS[i]) + 22;
-            if (i == tab) round(c, tx, wy + 9, tx + tw, wy + 31, 0xFF221C0F, 5);
-            c.drawTextWithShadow(this.textRenderer, ui(TABS[i]), tx + 11, wy + 16, i == tab ? TEXT : DIM);
+            boolean th = mx >= tx && mx < tx + tw && my >= wy + 9 && my < wy + 31;
+            tabHov[i] = step(tabHov[i], i == tab ? 1f : (th ? 0.7f : 0f), 16f);
+            c.drawTextWithShadow(this.textRenderer, ui(TABS[i]), tx + 11, wy + 16, mix(TEXT, DIM, tabHov[i]));
         }
         boolean overX = mx >= wx + ww - 26 && mx < wx + ww - 6 && my >= wy + 8 && my < wy + 32;
-        c.drawTextWithShadow(this.textRenderer, ui("x"), wx + ww - 17, wy + 16, overX ? 0xFFFFFFFF : DIM);
+        btnHov[2] = step(btnHov[2], overX ? 1f : 0f, 18f);
+        c.drawTextWithShadow(this.textRenderer, ui("x"), wx + ww - 17, wy + 16, mix(0xFFFFFFFF, DIM, btnHov[2]));
 
         // size buttons: smaller / bigger menu
         for (int b = 0; b < 2; b++) {
             int bx = wx + ww - 92 + b * 28;
             boolean hv = mx >= bx && mx < bx + 24 && my >= wy + 10 && my < wy + 30;
-            round(c, bx, wy + 10, bx + 24, wy + 30, hv ? 0xFF4A3A16 : 0xFF221C0F, 5);
+            btnHov[b] = step(btnHov[b], hv ? 1f : 0f, 18f);
+            round(c, bx, wy + 10, bx + 24, wy + 30, mix(0xFF4A3A16, 0xFF221C0F, btnHov[b]), 5);
             String lab = b == 0 ? "A-" : "A+";
-            c.drawTextWithShadow(this.textRenderer, ui(lab), bx + 12 - uw(lab) / 2, wy + 16, hv ? 0xFFFFFFFF : TEXT);
+            c.drawTextWithShadow(this.textRenderer, ui(lab), bx + 12 - uw(lab) / 2, wy + 16, mix(0xFFFFFFFF, TEXT, btnHov[b]));
         }
 
-        // sidebar: categories
+        // sidebar: categories (the highlight slides between them)
         List<Panel> cats = categories();
         c.drawTextWithShadow(this.textRenderer, ui("MODULES"), wx + 14, wy + HEADER + 12, DIM);
-        for (int i = 0; i <= cats.size(); i++) {
+        {
+            float targetY = wy + HEADER + 28 + category * 22;
+            if (catPillY < 0) catPillY = targetY;
+            float[] cps = {catPillY, catPillYv};
+            spring(cps, targetY, 16f);
+            catPillY = cps[0]; catPillYv = cps[1];
+            catPillA = step(catPillA, tab == 0 ? 1f : 0f, 14f);
+            if (catPillA > 0.01f) {
+                int py = (int) Math.floor(catPillY);
+                c.getMatrices().push();
+                c.getMatrices().translate(0f, catPillY - py, 0f);
+                round(c, wx + 8, py, wx + SIDE - 8, py + 20, mix(0xFF221C0F, 0xFF0D0B08, catPillA), 5);
+                int bar = mix(ACCENT, 0xFF0D0B08, catPillA);
+                c.fill(wx + 8, py + 3, wx + 10, py + 17, bar);
+                c.getMatrices().pop();
+            }
+        }
+        for (int i = 0; i <= cats.size() && i < catHov.length; i++) {
             int iy = wy + HEADER + 28 + i * 22;
             boolean sel = tab == 0 && category == i;
             boolean hov = mx >= wx + 8 && mx < wx + SIDE - 8 && my >= iy && my < iy + 20;
-            if (sel) {
-                round(c, wx + 8, iy, wx + SIDE - 8, iy + 20, 0xFF221C0F, 5);
-                c.fill(wx + 8, iy + 3, wx + 10, iy + 17, ACCENT);
-            } else if (hov) {
-                round(c, wx + 8, iy, wx + SIDE - 8, iy + 20, 0xFF18140C, 5);
+            catHov[i] = step(catHov[i], sel ? 1f : (hov ? 0.85f : 0f), 16f);
+            if (!sel && catHov[i] > 0.02f) {
+                round(c, wx + 8, iy, wx + SIDE - 8, iy + 20, mix(0xFF18140C, 0xFF0D0B08, catHov[i]), 5);
             }
             String label = i == 0 ? "Overview" : cats.get(i - 1).title;
-            c.drawTextWithShadow(this.textRenderer, ui(label), wx + 18, iy + 6, sel ? TEXT : (hov ? TEXT : DIM));
+            c.drawTextWithShadow(this.textRenderer, ui(label), wx + 18, iy + 6, mix(TEXT, DIM, catHov[i]));
         }
 
         // sidebar: footer
@@ -734,46 +836,109 @@ public class PharaohScreen extends Screen {
         int sbw = Math.min(150, cw / 2);
         int sbx = x0 + cw - sbw;
         int sby = wy + HEADER + 9;
-        round(c, sbx - (searchFocus ? 1 : 0), sby - (searchFocus ? 1 : 0), sbx + sbw + (searchFocus ? 1 : 0), sby + 18 + (searchFocus ? 1 : 0), searchFocus ? ACCENT : 0xFF2E2612, 5);
+        searchAnim = step(searchAnim, searchFocus ? 1f : 0f, 16f);
+        round(c, sbx - (searchAnim > 0.4f ? 1 : 0), sby - (searchAnim > 0.4f ? 1 : 0), sbx + sbw + (searchAnim > 0.4f ? 1 : 0),
+            sby + 18 + (searchAnim > 0.4f ? 1 : 0), mix(ACCENT, 0xFF2E2612, searchAnim), 5);
         round(c, sbx, sby, sbx + sbw, sby + 18, 0xFF110E09, 5);
         String shownSearch = search.isEmpty() && !searchFocus ? "Search modules..." : trim(search + (searchFocus && (System.currentTimeMillis() / 500) % 2 == 0 ? "_" : ""), sbw - 12);
         c.drawTextWithShadow(this.textRenderer, ui(shownSearch), sbx + 6, sby + 5, search.isEmpty() && !searchFocus ? DIM : TEXT);
 
-        // module list
+        // module list: every card glides to its place, so opening one or searching never makes things jump
         int top = wy + HEADER + 40;
         int bottom = wy + wh - 10;
         List<Module> mods = shown();
-        if (Math.abs(scroll - scrollShown) < 0.5f) scrollShown = scroll;
-        else scrollShown += (scroll - scrollShown) * Math.min(1f, dt * 18f);
-        int shownScroll = Math.round(scrollShown);
-        int y = top - shownScroll;
+        int page = tab * 100 + category;
+        if (page != lastPage) {
+            lastPage = page;
+            cardPos.clear();
+            cardAppear.clear();
+            scrollShown = 0;
+            scrollVel = 0;
+        }
+        {
+            float[] ss = {scrollShown, scrollVel};
+            spring(ss, scroll, 15f);
+            scrollShown = ss[0]; scrollVel = ss[1];
+        }
+        long nowMs = System.currentTimeMillis();
         int colw = (cw - 8) / 2;
+        int ly = 0;          // layout position inside the content (no scroll)
         int col = 0;
         int rowH = 0;
+        int idx = 0;
         c.enableScissor(x0 - 2, top, x0 + cw + 2, bottom);
         for (Module m : mods) {
-            if (m.open || openAnim.getOrDefault(m, 0f) > 0.02f) {
-                if (col == 1) { y += rowH + 8; col = 0; rowH = 0; }
-                int h = drawCard(c, m, x0, y, cw, mx, my, top, bottom);
-                y += h + 8;
+            float oa = springAnim(openAnim, m, m.open ? 1f : 0f, 14f);
+            int h = CARD + Math.round((m.settings.size() * ROW + 6) * oa);
+            boolean wide = m.open || oa > 0.02f;
+            int tx, tw;
+            if (wide) {
+                if (col == 1) { ly += rowH + 8; col = 0; rowH = 0; }
+                tx = 0; tw = cw;
             } else {
-                int cx = x0 + col * (colw + 8);
-                int h = drawCard(c, m, cx, y, colw, mx, my, top, bottom);
+                tx = col * (colw + 8); tw = colw;
+            }
+            int tyLay = ly;
+            if (wide) { ly += h + 8; }
+            else {
                 rowH = Math.max(rowH, h);
                 col++;
-                if (col == 2) { y += rowH + 8; col = 0; rowH = 0; }
+                if (col == 2) { ly += rowH + 8; col = 0; rowH = 0; }
             }
+
+            float[] pos = cardPos.get(m);
+            if (pos == null) {
+                pos = new float[] {tx, tyLay + 18, tw, 0f, 0f, 0f};
+                cardPos.put(m, pos);
+                cardAppear.put(m, nowMs + Math.min(idx, 10) * 30L);
+            }
+            long appear = cardAppear.getOrDefault(m, 0L);
+            float fade = easeOut((nowMs - appear) / 260f);
+            if (nowMs >= appear) {
+                springAt(pos, 0, 3, tx, 14f);
+                springAt(pos, 1, 4, tyLay, 14f);
+                springAt(pos, 2, 5, tw, 14f);
+            }
+            idx++;
+
+            float sy = top - scrollShown + pos[1];
+            int iy = (int) Math.floor(sy);
+            float fy = sy - iy;
+            float sx = x0 + pos[0];
+            int ix = (int) Math.floor(sx);
+            float fx = sx - ix;
+            int iw = Math.round(pos[2]);
+            if (iy + h < top || iy > bottom) continue;
+            c.getMatrices().push();
+            c.getMatrices().translate(fx, fy, 0f);
+            drawCard(c, m, ix, iy, iw, h, oa, mx, my, top, bottom);
+            if (fade < 0.99f) round(c, ix, iy, ix + iw, iy + h, (((int) ((1f - fade) * 0xE8)) << 24) | 0x0D0B08, 7);
+            c.getMatrices().pop();
         }
-        if (col == 1) y += rowH + 8;
-        int contentH = y - (top - shownScroll);
+        if (col == 1) ly += rowH + 8;
         c.disableScissor();
         if (mods.isEmpty()) {
             String msg = tab == 1 ? "No favorites yet. Click the star on a module." : "No modules found.";
             c.drawTextWithShadow(this.textRenderer, ui(msg), x0, top + 6, DIM);
         }
+        int contentH = ly;
         int maxScroll = Math.max(0, contentH - (bottom - top));
+        lastMaxScroll = maxScroll;
+        lastContentH = contentH;
+        lastViewH = bottom - top;
         scroll = Math.max(0, Math.min(scroll, maxScroll));
 
+        // thin scroll bar that fades in while scrolling
+        boolean moving = Math.abs(scroll - scrollShown) > 0.6f || Math.abs(scrollVel) > 4f || nowMs - lastWheel < 700;
+        barAlpha = step(barAlpha, maxScroll > 0 && moving ? 1f : 0f, moving ? 20f : 5f);
+        if (barAlpha > 0.02f && maxScroll > 0) {
+            int trackH = bottom - top;
+            int thumbH = Math.max(24, (int) (trackH * (trackH / (float) contentH)));
+            float frac = Math.max(0f, Math.min(1f, scrollShown / maxScroll));
+            int ty = top + Math.round((trackH - thumbH) * frac);
+            int bx = wx + ww - 9;
+            round(c, bx, ty, bx + 3, ty + thumbH, (((int) (0x99 * barAlpha)) << 24) | 0xE8C170, 1);
+        }
     }
 
     private static final int HEADER = 40;
@@ -787,17 +952,11 @@ public class PharaohScreen extends Screen {
     }
 
     /** Draws one tool card and returns its height. */
-    private int drawCard(DrawContext c, Module m, int x, int y, int w, int mx, int my, int top, int bottom) {
+    private int drawCard(DrawContext c, Module m, int x, int y, int w, int h, float oa, int mx, int my, int top, int bottom) {
         boolean on = m.on.getAsBoolean();
         int col = m.panel != null ? m.panel.color : ACCENT;
         int bright = mix(col, 0xFFFFFFFF, 0.5f);
-        float oa = anim(openAnim, m, m.open ? 1f : 0f, 16f);
-        int h = CARD + Math.round((m.settings.size() * ROW + 6) * oa);
-        float swT = anim(swAnim, m, on ? 1f : 0f, 14f);
-        if (y + h < top || y > bottom) {
-            // off screen: still make the hits line up by skipping them
-            return h;
-        }
+        float swT = springAnim(swAnim, m, on ? 1f : 0f, 15f);
 
         addHit(3, m, null, x, y, w - 86, CARD, top, bottom);
         boolean hov = mx >= x && mx < x + w && my >= y && my < y + CARD && my >= top && my < bottom;
@@ -821,7 +980,7 @@ public class PharaohScreen extends Screen {
 
         // + (settings), star, switch
         if (!m.settings.isEmpty()) {
-            plusButton(c, x + w - 98, y + 11, m.open);
+            plusButton(c, x + w - 98, y + 11, oa);
             addHit(1, m, null, x + w - 102, y + 6, 26, 28, top, bottom);
         }
         boolean fav = isFavorite(m);
@@ -864,11 +1023,12 @@ public class PharaohScreen extends Screen {
                     c.drawTextWithShadow(this.textRenderer, ui(value), x + w - vw - 12, sy + 2, bright);
                     c.fill(x + 12, sy + ROW - 3, x + w - 12, sy + ROW - 1, 0xFF2E2718);
                     float ratio = (s.iget.getAsInt() - s.min) / (float) (s.max - s.min);
-                    c.fill(x + 12, sy + ROW - 3, x + 12 + Math.round((w - 24) * ratio), sy + ROW - 1, col);
+                    float shownRatio = anim(slAnim, s, ratio, 26f);
+                    c.fill(x + 12, sy + ROW - 3, x + 12 + Math.round((w - 24) * shownRatio), sy + ROW - 1, col);
                 } else {
                     boolean sOn = s.get.getAsBoolean();
                     c.drawTextWithShadow(this.textRenderer, ui(trim(s.label, w - 60)), lx, sy + 3, sOn ? TEXT : DIM);
-                    float stT = anim(swAnim, s, sOn ? 1f : 0f, 16f);
+                    float stT = springAnim(swAnim, s, sOn ? 1f : 0f, 15f);
                     round(c, x + w - 32, sy + 3, x + w - 14, sy + 12, mix(col, 0xFF2E2718, stT), 4);
                     int kx = Math.round(x + w - 30 + 7 * stT);
                     round(c, kx, sy + 5, kx + 5, sy + 10, 0xFFFFFFFF, 2);
@@ -895,17 +1055,21 @@ public class PharaohScreen extends Screen {
         Setting s = h.s();
         double ratio = (mx - (h.x() + 12)) / (double) (h.w() - 24);
         ratio = Math.max(0, Math.min(1, ratio));
-        s.iset.accept(s.min + (int) Math.round(ratio * (s.max - s.min)));
+        int before = s.iset == null ? 0 : s.min + (int) Math.round(ratio * (s.max - s.min));
+        s.iset.accept(before);
+        if (lastSliderValue != before) { lastSliderValue = before; MenuSounds.tick((float) ratio); }
     }
 
     private void toggleModule(Module m) {
         m.setOn.accept(!m.on.getAsBoolean());
+        MenuSounds.toggle(m.on.getAsBoolean());
         ChunkFinderConfig.save();
         ChunkFinderClient.clearAll();
     }
 
     @Override
     public boolean mouseClicked(double mx, double my, int button) {
+        if (closing) return true;
         try {
             // the staff list can be dragged around while the menu is open (when it is outside the menu window)
             boolean inWindow = mx * d >= wx && mx * d < wx + ww && my * d >= wy && my * d < wy + wh;
@@ -948,6 +1112,7 @@ public class PharaohScreen extends Screen {
                 int tx = tabX(i);
                 int tw = uw(TABS[i]) + 22;
                 if (mx >= tx && mx < tx + tw && my >= wy + 9 && my < wy + 31) {
+                    if (tab != i) MenuSounds.tab();
                     tab = i;
                     scroll = 0;
                     return true;
@@ -958,6 +1123,7 @@ public class PharaohScreen extends Screen {
             for (int i = 0; i <= cats.size(); i++) {
                 int iy = wy + HEADER + 28 + i * 22;
                 if (mx >= wx + 8 && mx < wx + SIDE - 8 && my >= iy && my < iy + 20) {
+                    if (tab != 0 || category != i) MenuSounds.tab();
                     tab = 0;
                     category = i;
                     scroll = 0;
@@ -982,7 +1148,7 @@ public class PharaohScreen extends Screen {
                 if (button == 0) toggleModule(h.m());
             }
             case 1 -> {
-                if (button == 0) h.m().open = !h.m().open;
+                if (button == 0) { h.m().open = !h.m().open; MenuSounds.click(); }
             }
             case 2 -> {
                 if (button == 0) {
@@ -1000,6 +1166,7 @@ public class PharaohScreen extends Screen {
                     toggleModule(h.m());
                 } else if (button == 1 && !h.m().settings.isEmpty()) {
                     h.m().open = !h.m().open;
+                    MenuSounds.click();
                 } else if (button == 2) {
                     for (Setting ks : h.m().settings) {
                         if (ks.modKeyFor != null || ks.keySupplier != null) {
@@ -1024,6 +1191,7 @@ public class PharaohScreen extends Screen {
                     setSlider(h, mx);
                 } else if (s.get != null && s.set != null) {
                     s.set.accept(!s.get.getAsBoolean());
+                    MenuSounds.toggle(s.get.getAsBoolean());
                     ChunkFinderConfig.save();
                 }
             }
@@ -1120,8 +1288,10 @@ public class PharaohScreen extends Screen {
         double mx = rawX * d;
         double my = rawY * d;
         if (mx >= wx + SIDE && mx < wx + ww && my >= wy + HEADER && my < wy + wh) {
-            scroll -= (int) (vertical * 22 * d);
+            scroll -= (int) Math.round(vertical * 26 * d);
             if (scroll < 0) scroll = 0;
+            if (scroll > lastMaxScroll) scroll = lastMaxScroll;
+            lastWheel = System.currentTimeMillis();
             return true;
         }
         return super.mouseScrolled(mx, my, horizontal, vertical);
@@ -1173,8 +1343,19 @@ public class PharaohScreen extends Screen {
         return super.keyPressed(keyCode, scanCode, modifiers);
     }
 
+    /** Starts the closing animation; the screen really closes when it has finished. */
     @Override
     public void close() {
+        if (closing) return;
+        closing = true;
+        MenuSounds.close();
+        closeAt = System.currentTimeMillis();
+        listening = null;
+        searchFocus = false;
+        dragSlider = null;
+    }
+
+    private void doClose() {
         ChunkFinderConfig.save();
         ChunkFinderClient.clearAll();
         if (this.client != null) this.client.setScreen(parent);

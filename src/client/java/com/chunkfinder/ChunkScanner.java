@@ -46,7 +46,7 @@ public class ChunkScanner {
     private static boolean isWeakBlock(BlockState s) {
         return s.isOf(Blocks.CRAFTING_TABLE) || s.isOf(Blocks.TORCH) || s.isOf(Blocks.WALL_TORCH)
             || s.isOf(Blocks.SOUL_TORCH) || s.isOf(Blocks.LANTERN) || s.isOf(Blocks.GLASS)
-            || s.isOf(Blocks.GLASS_PANE) || s.isOf(Blocks.LADDER) || s.isOf(Blocks.CAMPFIRE)
+            || s.isOf(Blocks.GLASS_PANE) || s.isOf(Blocks.CAMPFIRE)
             || s.isOf(Blocks.SMOKER) || s.isOf(Blocks.BLAST_FURNACE) || s.isOf(Blocks.COBBLESTONE_STAIRS)
             || s.isOf(Blocks.SMOOTH_STONE) || s.isOf(Blocks.STONE_BRICKS) || s.isOf(Blocks.OAK_DOOR)
             || s.isOf(Blocks.OAK_SIGN) || s.isOf(Blocks.OAK_WALL_SIGN);
