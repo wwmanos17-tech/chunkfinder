@@ -10,7 +10,7 @@ import java.util.Map;
 
 /** Collects the chunk boxes for Chunk Finder (geodes, player activity and sus chunks). */
 public class ChunkRenderer {
-    public static void collect(List<EspRenderer.Box> boxes, Vec3d cam) {
+    public static void collect(List<EspRenderer.Box> boxes, List<EspRenderer.Line> lines, Vec3d cam) {
         ChunkFinderConfig cfg = ChunkFinderConfig.INSTANCE;
         if (!cfg.enabled) return;
         ClientWorld world = MinecraftClient.getInstance().world;
@@ -56,8 +56,10 @@ public class ChunkRenderer {
         }
 
         if (cfg.detectSus) {
-            int[] s = cfg.susColor;
-            for (ChunkPos pos : SusScanner.FOUND.keySet()) {
+            int need = cfg.requiredSusScore();
+            for (Map.Entry<ChunkPos, Integer> se : SusScanner.FOUND.entrySet()) {
+                ChunkPos pos = se.getKey();
+                int[] s = cfg.susScoreColors ? SusScanner.strengthColor(se.getValue(), need, cfg.susColor) : cfg.susColor;
                 int[] levels = SusScanner.LEVELS.get(pos);
                 if (levels == null || levels.length == 0) levels = new int[]{cfg.renderY};
                 double x1 = pos.getStartX();
@@ -65,6 +67,19 @@ public class ChunkRenderer {
                 for (int y : levels) {
                     boxes.add(new EspRenderer.Box(x1, y, z1, x1 + 16, y + 0.02, z1 + 16,
                         s[0] / 255f, s[1] / 255f, s[2] / 255f, cfg.susAlpha / 100f));
+                }
+            }
+            if (cfg.susTracer && !SusScanner.FOUND.isEmpty()) {
+                MinecraftClient mc = MinecraftClient.getInstance();
+                if (mc.player != null) {
+                    java.util.List<Map.Entry<ChunkPos, Integer>> rk = SusScanner.ranked(mc.player.getX(), mc.player.getZ());
+                    ChunkPos best = rk.get(0).getKey();
+                    int[] lv = SusScanner.LEVELS.get(best);
+                    double by = (lv != null && lv.length > 0) ? lv[0] : cfg.renderY;
+                    int[] col = SusScanner.strengthColor(rk.get(0).getValue(), need, cfg.susColor);
+                    Vec3d st = Proj.tracerStart(mc);
+                    lines.add(new EspRenderer.Line(st.x, st.y, st.z, best.getStartX() + 8, by, best.getStartZ() + 8,
+                        col[0] / 255f, col[1] / 255f, col[2] / 255f));
                 }
             }
         }

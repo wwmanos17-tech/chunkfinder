@@ -260,7 +260,8 @@ public class ChestEsp {
         if (timer-- > 0) return;
         timer = 3;
         ticks += 3;
-        int scanBudget = 6;
+        double flySpeed = mc.player.getVelocity().horizontalLength();
+        int scanBudget = !cfg.fastScan ? 6 : (flySpeed > 0.6 ? 30 : 14);
 
         java.util.Set<Long> seenNow = new java.util.HashSet<>();
         Map<Kind, Integer> counts = new EnumMap<>(Kind.class);

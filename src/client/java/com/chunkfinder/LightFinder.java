@@ -86,16 +86,21 @@ public class LightFinder {
         int pcx = mc.player.getChunkPos().x;
         int pcz = mc.player.getChunkPos().z;
 
-        int budget = 2;
-        for (int cx = pcx - radius; cx <= pcx + radius && budget > 0; cx++) {
-            for (int cz = pcz - radius; cz <= pcz + radius && budget > 0; cz++) {
+        int budget = FastScan.maxChunks(mc, 2);
+        long startNs = System.nanoTime();
+        long limitNs = FastScan.limitNs(mc);
+        boolean fast = FastScan.on();
+        int done = 0;
+        for (int cx = pcx - radius; cx <= pcx + radius && done < budget; cx++) {
+            for (int cz = pcz - radius; cz <= pcz + radius && done < budget; cz++) {
+                if (fast && done > 0 && System.nanoTime() - startNs > limitNs) break;
                 ChunkPos pos = new ChunkPos(cx, cz);
                 if (SCORES.containsKey(pos) && !STALE.contains(pos)) continue;
                 WorldChunk chunk = mc.world.getChunkManager().getWorldChunk(cx, cz);
                 if (chunk == null) continue;
                 SCORES.put(pos, score(chunk));
                 STALE.remove(pos);
-                budget--;
+                done++;
             }
         }
 

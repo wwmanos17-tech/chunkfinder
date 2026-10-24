@@ -43,10 +43,14 @@ public class ChunkFinderConfig {
     public boolean detectGeodes = true;
     public boolean detectActivity = true;
     public boolean detectSus = true;
+    public boolean fastScan = true;
     /** 1..10 - higher flags more suspicious-looking chunks. */
     public int susSensitivity = 5;
     public boolean tallColumns = true;
     public boolean susList = true;
+    public boolean susScoreColors = true;
+    public boolean susLabels = true;
+    public boolean susTracer = false;
     public int susListCount = 5;
     public boolean detectLight = true;
     /** Underground lights needed in a chunk before it is flagged (1..20). */
@@ -125,6 +129,15 @@ public class ChunkFinderConfig {
     public boolean timerShowSession = true;
     public boolean timerShowStopwatch = true;
     public boolean timerShowClock = false;
+
+    // ---------------- Activity Detector ----------------
+    public boolean activityEnabled = false;
+    public int activityRedstoneMin = 8;
+    public boolean activityRedstone = true;
+    public boolean activityStorage = true;
+    public boolean activityStatic = true;
+    public boolean activityLabels = true;
+    public boolean activityChat = true;
 
     // ---------------- Entity ESP ----------------
     public boolean entityEspEnabled = false;
@@ -263,6 +276,7 @@ public class ChunkFinderConfig {
         itemEspRange = clampInt(itemEspRange, 8, 512);
         entityEspRange = clampInt(entityEspRange, 8, 512);
         playerLogLines = clampInt(playerLogLines, 2, 15);
+        activityRedstoneMin = clampInt(activityRedstoneMin, 2, 60);
         armorScale = clampInt(armorScale, 50, 250);
         spectatorRange = clampInt(spectatorRange, 4, 128);
         spectatorHeadPercent = clampInt(spectatorHeadPercent, 10, 100);

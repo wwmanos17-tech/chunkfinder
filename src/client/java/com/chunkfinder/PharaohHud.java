@@ -60,8 +60,10 @@ public class PharaohHud {
             playerLabels(ctx, mc);
             chestLabels(ctx, mc);
             baseLabels(ctx, mc);
+            susLabels(ctx, mc);
             itemLabels(ctx, mc);
             entityLabels(ctx, mc);
+            activityLabels(ctx, mc);
             chestSummary(ctx, mc);
         } catch (Throwable t) {
             pausedUntil = System.currentTimeMillis() + 2000;
@@ -85,6 +87,7 @@ public class PharaohHud {
             if (c.itemEspEnabled) names.add("ITEM ESP");
             if (c.entityEspEnabled) names.add("ENTITY ESP");
             if (c.playerLogEnabled) names.add("PLAYER LOGGER");
+            if (c.activityEnabled) names.add("ACTIVITY");
             if (c.oreEspEnabled) names.add("ORE ESP");
             if (c.spectatorEnabled) names.add("SPECTATOR ALERT");
             if (names.isEmpty()) return;
@@ -149,6 +152,29 @@ public class PharaohHud {
         }
     }
 
+    private static void activityLabels(DrawContext ctx, MinecraftClient mc) {
+        ChunkFinderConfig cfg = ChunkFinderConfig.INSTANCE;
+        if (!cfg.activityEnabled || !cfg.activityLabels) return;
+        long now = ActivityScanner.now();
+        int shown = 0;
+        for (Map.Entry<net.minecraft.util.math.ChunkPos, ActivityScanner.State> e : ActivityScanner.HOT) {
+            if (shown >= 12) break;
+            ActivityScanner.State s = e.getValue();
+            boolean recent = now - s.eventAt < 600;
+            boolean red = s.parts >= cfg.activityRedstoneMin;
+            if (!recent && !(red && s.active > 0)) continue;
+            double cx = e.getKey().getStartX() + 8, cz = e.getKey().getStartZ() + 8;
+            float[] sc = Proj.toScreen(mc, new Vec3d(cx, s.avgY() + 8, cz));
+            if (sc == null) continue;
+            int dist = (int) Math.hypot(cx - mc.player.getX(), cz - mc.player.getZ());
+            String text = recent ? "ACTIVITY: " + s.eventText + " (" + ((now - s.eventAt) / 20) + "s ago)"
+                : "REDSTONE " + s.parts + " parts, " + s.active + " on";
+            ctx.drawCenteredTextWithShadow(mc.textRenderer, Text.literal(text + " [" + dist + "m]"),
+                (int) sc[0], (int) sc[1], recent ? 0xFF4DFFFF : 0xFFFFD24D);
+            shown++;
+        }
+    }
+
     private static void entityLabels(DrawContext ctx, MinecraftClient mc) {
         if (!ChunkFinderConfig.INSTANCE.entityEspEnabled || !ChunkFinderConfig.INSTANCE.entityEspLabels) return;
         for (EntityEsp.Label l : EntityEsp.LABELS) {
@@ -166,6 +192,26 @@ public class PharaohHud {
             if (s == null) continue;
             ctx.drawCenteredTextWithShadow(mc.textRenderer, Text.literal(l.text() + " [" + l.dist() + "m]"),
                 (int) s[0], (int) s[1], 0xFF000000 | l.rgb());
+        }
+    }
+
+    private static void susLabels(DrawContext ctx, MinecraftClient mc) {
+        ChunkFinderConfig cfg = ChunkFinderConfig.INSTANCE;
+        if (!cfg.enabled || !cfg.detectSus || !cfg.susLabels || SusScanner.FOUND.isEmpty()) return;
+        java.util.List<Map.Entry<net.minecraft.util.math.ChunkPos, Integer>> rk = SusScanner.ranked(mc.player.getX(), mc.player.getZ());
+        int need = cfg.requiredSusScore();
+        int n = Math.min(rk.size(), Math.max(1, cfg.susListCount));
+        for (int i = 0; i < n; i++) {
+            net.minecraft.util.math.ChunkPos p = rk.get(i).getKey();
+            int[] lv = SusScanner.LEVELS.get(p);
+            double y = (lv != null && lv.length > 0 ? lv[0] : cfg.renderY) + 1.5;
+            double cx = p.getStartX() + 8, cz = p.getStartZ() + 8;
+            float[] s = Proj.toScreen(mc, new Vec3d(cx, y, cz));
+            if (s == null) continue;
+            int[] col = SusScanner.strengthColor(rk.get(i).getValue(), need, cfg.susColor);
+            int dist = (int) Math.hypot(cx - mc.player.getX(), cz - mc.player.getZ());
+            ctx.drawCenteredTextWithShadow(mc.textRenderer, Text.literal("SUS " + rk.get(i).getValue() + "  [" + dist + "m]"),
+                (int) s[0], (int) s[1], 0xFF000000 | (col[0] << 16) | (col[1] << 8) | col[2]);
         }
     }
 

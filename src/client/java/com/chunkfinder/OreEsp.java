@@ -135,9 +135,13 @@ public class OreEsp {
             pending = list;
         }
 
-        // scan up to two chunks per tick
-        int budget = 2;
-        while (budget > 0 && !pending.isEmpty()) {
+        // scan chunks: 2 per tick normally, many more (within a small time limit) with Fast Scan
+        int budget = FastScan.maxChunks(mc, 2);
+        long startNs = System.nanoTime();
+        long limitNs = FastScan.limitNs(mc);
+        int done = 0;
+        while (done < budget && !pending.isEmpty()) {
+            if (FastScan.on() && done > 0 && System.nanoTime() - startNs > limitNs) break;
             ChunkPos pos = pending.remove(0);
             WorldChunk chunk = mc.world.getChunkManager().getWorldChunk(pos.x, pos.z);
             if (chunk == null) continue;
@@ -145,7 +149,7 @@ public class OreEsp {
             CACHE.put(pos, found);
             if (cfg.alertRareOres) alertRare(mc, found);
             SCANNED_AT.put(pos, ticks);
-            budget--;
+            done++;
         }
 
         // forget chunks far away

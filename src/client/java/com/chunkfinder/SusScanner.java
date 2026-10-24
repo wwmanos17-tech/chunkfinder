@@ -15,7 +15,9 @@ import net.minecraft.world.World;
 import net.minecraft.world.chunk.ChunkSection;
 import net.minecraft.world.chunk.WorldChunk;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
@@ -35,6 +37,8 @@ public class SusScanner {
     /** Heights where the clues were found, per chunk, so the chunk can be drawn as flat slabs at those heights. */
     public static final Map<ChunkPos, int[]> LEVELS = new ConcurrentHashMap<>();
     private static final Set<ChunkPos> NOTIFIED = new HashSet<>();
+
+    private record Cand(ChunkPos pos, boolean scanned, int dist2) {}
 
     private static int age = 0;
     private static final Set<ChunkPos> STALE = new HashSet<>();
@@ -61,6 +65,13 @@ public class SusScanner {
             || s.isOf(Blocks.NOTE_BLOCK) || s.isOf(Blocks.SCAFFOLDING) || s.isOf(Blocks.WHITE_WOOL);
     }
 
+    /** Blocks that only exist in natural underground structures (ancient cities, trial chambers, strongholds). */
+    private static boolean isNaturalMarker(BlockState s) {
+        return s.isOf(Blocks.SCULK_SHRIEKER) || s.isOf(Blocks.SCULK_CATALYST) || s.isOf(Blocks.REINFORCED_DEEPSLATE)
+            || s.isOf(Blocks.TRIAL_SPAWNER) || s.isOf(Blocks.VAULT) || s.isOf(Blocks.END_PORTAL_FRAME)
+            || s.isOf(Blocks.CHISELED_TUFF_BRICKS) || s.isOf(Blocks.HEAVY_CORE);
+    }
+
     public static void tick(MinecraftClient mc) {
         ChunkFinderConfig cfg = ChunkFinderConfig.INSTANCE;
         if (!cfg.enabled || !cfg.detectSus || mc.world == null || mc.player == null) return;
@@ -76,26 +87,57 @@ public class SusScanner {
         int pcx = mc.player.getChunkPos().x;
         int pcz = mc.player.getChunkPos().z;
 
-        int budget = 2;
-        for (int cx = pcx - radius; cx <= pcx + radius && budget > 0; cx++) {
-            for (int cz = pcz - radius; cz <= pcz + radius && budget > 0; cz++) {
+        // Fast scan: nearest chunks first, never scanned chunks before old ones, and as many chunks per tick as fit in a
+        // small time budget (more while you fly fast). Without it only 2 chunks are checked per tick.
+        boolean fast = cfg.fastScan;
+        long limitNs = !fast ? 0 : FastScan.limitNs(mc) + 1_500_000L;
+        int maxChunks = FastScan.maxChunks(mc, 2) * (fast ? 2 : 1);
+
+        List<Cand> todo = new ArrayList<>();
+        for (int cx = pcx - radius; cx <= pcx + radius; cx++) {
+            for (int cz = pcz - radius; cz <= pcz + radius; cz++) {
                 ChunkPos pos = new ChunkPos(cx, cz);
-                if (SCORES.containsKey(pos) && !STALE.contains(pos)) continue;
-                WorldChunk chunk = mc.world.getChunkManager().getWorldChunk(cx, cz);
-                if (chunk == null) continue;
-                SCORES.put(pos, score(mc, chunk));
-                STALE.remove(pos);
-                budget--;
+                boolean scanned = SCORES.containsKey(pos);
+                if (scanned && !STALE.contains(pos)) continue;
+                int dx = cx - pcx, dz = cz - pcz;
+                todo.add(new Cand(pos, scanned, dx * dx + dz * dz));
             }
         }
+        if (fast) {
+            todo.sort((a1, b1) -> a1.scanned() != b1.scanned() ? (a1.scanned() ? 1 : -1) : Integer.compare(a1.dist2(), b1.dist2()));
+        }
+        long start = System.nanoTime();
+        int done = 0;
+        for (Cand cd : todo) {
+            if (done >= maxChunks) break;
+            if (done > 0 && fast && System.nanoTime() - start > limitNs) break;
+            WorldChunk chunk = mc.world.getChunkManager().getWorldChunk(cd.pos().x, cd.pos().z);
+            if (chunk == null) continue;
+            SCORES.put(cd.pos(), score(mc, chunk));
+            STALE.remove(cd.pos());
+            done++;
+        }
 
+        // a base usually spreads over several chunks, so a chunk also gets a share of the score of its neighbours.
+        // A chunk still needs some evidence of its own, so an empty chunk next to a base is not flagged.
         int need = cfg.requiredSusScore();
         FOUND.clear();
         for (Map.Entry<ChunkPos, Integer> e : SCORES.entrySet()) {
             ChunkPos p = e.getKey();
             if (Math.abs(p.x - pcx) > radius || Math.abs(p.z - pcz) > radius) continue;
-            if (e.getValue() >= need) {
-                FOUND.put(p, e.getValue());
+            int own = e.getValue();
+            if (own <= 0) continue;
+            int near = 0;
+            for (int dx = -1; dx <= 1; dx++) {
+                for (int dz = -1; dz <= 1; dz++) {
+                    if (dx == 0 && dz == 0) continue;
+                    Integer v = SCORES.get(new ChunkPos(p.x + dx, p.z + dz));
+                    if (v != null) near += v;
+                }
+            }
+            int eff = own + near / 3;
+            if (own >= Math.min(2, need) && eff >= need) {
+                FOUND.put(p, eff);
                 if (cfg.notify && NOTIFIED.add(p)) {
                     mc.player.sendMessage(Text.literal("[Pharaoh] Sus chunk at X " + (p.getStartX() + 8)
                         + ", Z " + (p.getStartZ() + 8)), false);
@@ -107,6 +149,13 @@ public class SusScanner {
     private static int score(MinecraftClient mc, WorldChunk chunk) {
         int score = 0;
         java.util.List<Integer> ys = new java.util.ArrayList<>();
+
+        // natural structures (ancient city, trial chamber, stronghold portal room) look like bases, so they get discounted
+        boolean natural = false;
+        for (ChunkSection ns : chunk.getSectionArray()) {
+            if (ns == null || ns.isEmpty()) continue;
+            if (ns.hasAny(SusScanner::isNaturalMarker)) { natural = true; break; }
+        }
 
         // 1) blocks that do not belong in caves (only sections below about y 47)
         ChunkSection[] sections = chunk.getSectionArray();
@@ -172,6 +221,8 @@ public class SusScanner {
 
         // 2) perfectly straight 1x2 tunnels
         score += Math.min(6, tunnels(mc, chunk, ys) * 3);
+
+        if (natural) score = Math.max(0, score - 8);
 
         LEVELS.put(chunk.getPos(), cluster(ys));
         return score;
@@ -245,6 +296,27 @@ public class SusScanner {
         p.set(x, y, z);
         BlockState s = chunk.getBlockState(p);
         return !s.isAir() && s.getFluidState().isEmpty() && s.isSolidBlock(mc.world, p);
+    }
+
+    /** Strongest sus chunks first, nearest first when equal. */
+    public static java.util.List<Map.Entry<ChunkPos, Integer>> ranked(double px, double pz) {
+        java.util.List<Map.Entry<ChunkPos, Integer>> list = new java.util.ArrayList<>(FOUND.entrySet());
+        list.sort((a, b) -> {
+            int c = Integer.compare(b.getValue(), a.getValue());
+            if (c != 0) return c;
+            double da = Math.hypot(a.getKey().getStartX() + 8 - px, a.getKey().getStartZ() + 8 - pz);
+            double db = Math.hypot(b.getKey().getStartX() + 8 - px, b.getKey().getStartZ() + 8 - pz);
+            return Double.compare(da, db);
+        });
+        return list;
+    }
+
+    /** Colour for a sus chunk: yellow = weak, orange = medium, red = strong. */
+    public static int[] strengthColor(int score, int need, int[] strong) {
+        float r = score / (float) Math.max(1, need);
+        if (r < 1.5f) return new int[]{255, 214, 60};
+        if (r < 2.2f) return new int[]{255, 140, 30};
+        return strong;
     }
 
     /** Small on-screen list of the strongest sus chunks, nearest to your position, with distance and coordinates. */

@@ -60,7 +60,7 @@ public class ChunkScanner {
         ChunkFinderConfig cfg = ChunkFinderConfig.INSTANCE;
         if (!cfg.enabled || mc.world == null || mc.player == null) return;
         if (timer-- > 0) return;
-        timer = cfg.scanInterval;
+        timer = FastScan.on() ? Math.min(cfg.scanInterval, 8) : cfg.scanInterval;
 
         // Never scan further than the client actually has loaded.
         int radius = Math.min(cfg.simulationDistance, mc.options.getViewDistance().getValue());
