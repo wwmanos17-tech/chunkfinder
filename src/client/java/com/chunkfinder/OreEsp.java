@@ -126,7 +126,9 @@ public class OreEsp {
                 for (int cz = pcz - radius; cz <= pcz + radius; cz++) {
                     ChunkPos pos = new ChunkPos(cx, cz);
                     Integer at = SCANNED_AT.get(pos);
-                    if (at == null || ticks - at > 600) list.add(pos);
+                    boolean near = Math.max(Math.abs(cx - pcx), Math.abs(cz - pcz)) <= FastScan.NEAR;
+                    // chunks right next to you get their real underground blocks, so they are re-checked much more often
+                    if (at == null || ticks - at > (near ? 40 : 600)) list.add(pos);
                 }
             }
             list.sort((a, b) -> Integer.compare(

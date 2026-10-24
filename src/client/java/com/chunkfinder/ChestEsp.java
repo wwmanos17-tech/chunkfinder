@@ -270,6 +270,19 @@ public class ChestEsp {
         int pcx = mc.player.getChunkPos().x;
         int pcz = mc.player.getChunkPos().z;
 
+        // Close-range rescan: chunks right next to you get their real underground blocks, so look at them again very often.
+        for (int dx = -FastScan.NEAR; dx <= FastScan.NEAR; dx++) {
+            for (int dz = -FastScan.NEAR; dz <= FastScan.NEAR; dz++) {
+                WorldChunk nc = mc.world.getChunkManager().getWorldChunk(pcx + dx, pcz + dz);
+                if (nc == null) continue;
+                Integer last = BLOCK_SCANNED.get(nc.getPos().toLong());
+                if (last == null || ticks - last > FastScan.NEAR_TICKS) {
+                    BLOCK_SCANNED.put(nc.getPos().toLong(), ticks);
+                    blockScan(mc, nc, cfg);
+                }
+            }
+        }
+
         outer:
         for (int cx = pcx - radius; cx <= pcx + radius; cx++) {
             for (int cz = pcz - radius; cz <= pcz + radius; cz++) {

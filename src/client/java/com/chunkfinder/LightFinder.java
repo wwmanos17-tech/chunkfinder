@@ -30,6 +30,8 @@ public class LightFinder {
     private static final Set<ChunkPos> STALE = new HashSet<>();
     private static final Set<ChunkPos> NOTIFIED = new HashSet<>();
     private static int age = 0;
+    private static int now = 0;
+    private static final Map<ChunkPos, Integer> SCANNED_AT = new HashMap<>();
 
     public static void clear() {
         FOUND.clear();
@@ -39,6 +41,8 @@ public class LightFinder {
         STALE.clear();
         NOTIFIED.clear();
         age = 0;
+        now = 0;
+        SCANNED_AT.clear();
     }
 
     private static boolean isLight(BlockState s) {
@@ -94,6 +98,25 @@ public class LightFinder {
         int pcx = mc.player.getChunkPos().x;
         int pcz = mc.player.getChunkPos().z;
 
+        now++;
+        // Close-range rescan: chunks right next to you get their real underground blocks, so check them about once a second.
+        {
+            int nearDone = 0;
+            for (int dx = -FastScan.NEAR; dx <= FastScan.NEAR && nearDone < 4; dx++) {
+                for (int dz = -FastScan.NEAR; dz <= FastScan.NEAR && nearDone < 4; dz++) {
+                    ChunkPos np = new ChunkPos(pcx + dx, pcz + dz);
+                    Integer at = SCANNED_AT.get(np);
+                    if (at != null && now - at < FastScan.NEAR_TICKS) continue;
+                    WorldChunk nc = mc.world.getChunkManager().getWorldChunk(np.x, np.z);
+                    if (nc == null) continue;
+                    SCORES.put(np, score(nc));
+                    SCANNED_AT.put(np, now);
+                    STALE.remove(np);
+                    nearDone++;
+                }
+            }
+        }
+
         int budget = FastScan.maxChunks(mc, 2);
         long startNs = System.nanoTime();
         long limitNs = FastScan.limitNs(mc);
@@ -107,6 +130,7 @@ public class LightFinder {
                 WorldChunk chunk = mc.world.getChunkManager().getWorldChunk(cx, cz);
                 if (chunk == null) continue;
                 SCORES.put(pos, score(chunk));
+                SCANNED_AT.put(pos, now);
                 STALE.remove(pos);
                 done++;
             }

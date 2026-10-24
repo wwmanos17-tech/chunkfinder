@@ -47,7 +47,7 @@ public class ChunkFinderClient implements ClientModInitializer {
         PlayerLog.clear();
         SessionTimer.clear();
         ActivityScanner.clear();
-        ChunkDataCheck.clear();
+        ReachTest.clear();
         LightFinder.clear();
         ChestEsp.clear();
         OreEsp.clear();
@@ -141,7 +141,7 @@ public class ChunkFinderClient implements ClientModInitializer {
         safe("BaseEsp", () -> BaseEsp.tick(mc));
         safe("PlayerLog", () -> PlayerLog.tick(mc));
         safe("ActivityScanner", () -> ActivityScanner.tick(mc));
-        safe("ChunkDataCheck", () -> ChunkDataCheck.tick(mc));
+        safe("ReachTest", () -> ReachTest.tick(mc));
         safe("LightFinder", () -> LightFinder.tick(mc));
         safe("OreEsp", () -> OreEsp.tick(mc));
         safe("SpectatorAlert", () -> SpectatorAlert.tick(mc));

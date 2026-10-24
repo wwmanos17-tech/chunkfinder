@@ -48,7 +48,7 @@ public class BaseEsp {
             return;
         }
         if (timer-- > 0) return;
-        timer = FastScan.on() ? 10 : 30;
+        timer = FastScan.on() ? 5 : 30;
 
         List<Pt> pts = new ArrayList<>();
         for (ChestEsp.Target t : ChestEsp.memory()) {

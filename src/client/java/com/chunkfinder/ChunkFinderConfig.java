@@ -134,10 +134,10 @@ public class ChunkFinderConfig {
     public boolean timerShowStopwatch = true;
     public boolean timerShowClock = false;
 
-    // ---------------- Chunk Data Check ----------------
-    public boolean checkEnabled = false;
-    public int checkX = 4;
-    public int checkY = 140;
+    // ---------------- Reach Test ----------------
+    public boolean reachEnabled = false;
+    public int reachX = 4;
+    public int reachY = 140;
 
     // ---------------- Activity Detector ----------------
     public boolean activityEnabled = false;
@@ -286,8 +286,8 @@ public class ChunkFinderConfig {
         entityEspRange = clampInt(entityEspRange, 8, 512);
         playerLogLines = clampInt(playerLogLines, 2, 15);
         activityRedstoneMin = clampInt(activityRedstoneMin, 2, 60);
-        checkX = clampInt(checkX, 0, 2000);
-        checkY = clampInt(checkY, 0, 2000);
+        reachX = clampInt(reachX, 0, 2000);
+        reachY = clampInt(reachY, 0, 2000);
         armorScale = clampInt(armorScale, 50, 250);
         spectatorRange = clampInt(spectatorRange, 4, 128);
         spectatorHeadPercent = clampInt(spectatorHeadPercent, 10, 100);

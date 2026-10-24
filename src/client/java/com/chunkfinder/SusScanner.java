@@ -43,10 +43,16 @@ public class SusScanner {
     private record Cand(ChunkPos pos, boolean scanned, int dist2) {}
 
     private static int age = 0;
+    private static int now = 0;
+    /** Chunks this close (in chunks) are re-checked about once a second. */
+    private static final int SUS_NEAR = 6;
+    private static final Map<ChunkPos, Integer> SCANNED_AT = new HashMap<>();
     private static final Set<ChunkPos> STALE = new HashSet<>();
 
     public static void clear() {
         age = 0;
+        now = 0;
+        SCANNED_AT.clear();
         STALE.clear();
         FOUND.clear();
         SCORES.clear();
@@ -86,6 +92,7 @@ public class SusScanner {
             age = 0;
             STALE.addAll(SCORES.keySet());
         }
+        now++;
 
         int radius = mc.options.getViewDistance().getValue(); // every chunk the game has loaded, so flagged chunks show from anywhere
         int pcx = mc.player.getChunkPos().x;
@@ -95,7 +102,28 @@ public class SusScanner {
         // small time budget (more while you fly fast). Without it only 2 chunks are checked per tick.
         boolean fast = cfg.fastScan;
         long limitNs = !fast ? 0 : FastScan.limitNs(mc) + 1_500_000L;
-        int maxChunks = FastScan.maxChunks(mc, 2) * (fast ? 2 : 1);
+        int maxChunks = FastScan.maxChunks(mc, 2) * (fast ? 6 : 2);
+
+        // Close-range rescan: the server only sends the real underground blocks to chunks right next to you, so chunks
+        // inside the near zone are checked again about once a second. A base shows up the moment you get in range.
+        {
+            long nearStart = System.nanoTime();
+            int nearDone = 0;
+            for (int dx = -SUS_NEAR; dx <= SUS_NEAR && nearDone < 10; dx++) {
+                for (int dz = -SUS_NEAR; dz <= SUS_NEAR && nearDone < 10; dz++) {
+                    ChunkPos np = new ChunkPos(pcx + dx, pcz + dz);
+                    Integer at = SCANNED_AT.get(np);
+                    if (at != null && now - at < FastScan.NEAR_TICKS) continue;
+                    if (nearDone > 0 && System.nanoTime() - nearStart > 3_000_000L) continue;
+                    WorldChunk nc = mc.world.getChunkManager().getWorldChunk(np.x, np.z);
+                    if (nc == null) continue;
+                    SCORES.put(np, score(mc, nc)); // near chunks have real data, so this result replaces the old one
+                    SCANNED_AT.put(np, now);
+                    STALE.remove(np);
+                    nearDone++;
+                }
+            }
+        }
 
         List<Cand> todo = new ArrayList<>();
         for (int cx = pcx - radius; cx <= pcx + radius; cx++) {
@@ -107,7 +135,7 @@ public class SusScanner {
                 todo.add(new Cand(pos, scanned, dx * dx + dz * dz));
             }
         }
-        if (fast) {
+        {
             todo.sort((a1, b1) -> a1.scanned() != b1.scanned() ? (a1.scanned() ? 1 : -1) : Integer.compare(a1.dist2(), b1.dist2()));
         }
         long start = System.nanoTime();
@@ -117,7 +145,8 @@ public class SusScanner {
             if (done > 0 && fast && System.nanoTime() - start > limitNs) break;
             WorldChunk chunk = mc.world.getChunkManager().getWorldChunk(cd.pos().x, cd.pos().z);
             if (chunk == null) continue;
-            SCORES.put(cd.pos(), score(mc, chunk));
+            SCORES.put(cd.pos(), scoreKeep(mc, chunk, cd.dist2() > SUS_NEAR * SUS_NEAR));
+            SCANNED_AT.put(cd.pos(), now);
             STALE.remove(cd.pos());
             done++;
         }
@@ -148,6 +177,26 @@ public class SusScanner {
                 }
             }
         }
+    }
+
+    /**
+     * Scores a chunk; for a far chunk that already had a higher score, the old result is kept (a base you found stays
+     * marked after you move away, even if the server later sends only filler for it). Near chunks always replace it.
+     */
+    private static int scoreKeep(MinecraftClient mc, WorldChunk chunk, boolean far) {
+        ChunkPos pos = chunk.getPos();
+        Integer old = SCORES.get(pos);
+        int[] lv = LEVELS.get(pos);
+        long[] sp = SPOTS.get(pos);
+        Integer hi = HI.get(pos);
+        int sc = score(mc, chunk);
+        if (far && old != null && sc < old) {
+            if (lv != null) LEVELS.put(pos, lv);
+            if (sp != null) SPOTS.put(pos, sp);
+            if (hi != null) HI.put(pos, hi);
+            return old;
+        }
+        return sc;
     }
 
     private static int score(MinecraftClient mc, WorldChunk chunk) {
