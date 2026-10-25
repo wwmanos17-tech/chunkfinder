@@ -139,6 +139,38 @@ public class ChunkFinderConfig {
     public int reachX = 4;
     public int reachY = 140;
 
+    // ---------------- Market Helper ----------------
+    public boolean marketEnabled = false;
+    public int marketMinPercent = 25;
+    public int marketMinProfit = 0;
+    public int marketFee = 0;
+    public boolean marketPerItem = false;
+    public boolean marketPanel = true;
+
+    // ---------------- Cave Finder ----------------
+    public boolean caveEnabled = false;
+    public boolean caveDeep = true;
+    public int caveMin = 30;
+    public int caveRange = 8;
+    public boolean caveCaves = true;
+    public boolean caveRooms = true;
+    public boolean caveFill = true;
+
+    // ---------------- Farm Finder ----------------
+    public boolean farmEnabled = false;
+    public int farmMin = 8;
+    public boolean farmUnderground = true;
+    public boolean farmChat = true;
+    public boolean farmTracer = false;
+    public boolean farmLabels = true;
+
+    // ---------------- Sweep Map ----------------
+    public boolean sweepEnabled = false;
+    public int sweepRadius = 12;
+    public boolean sweepFlags = true;
+    public int sweepX = 4;
+    public int sweepY = 60;
+
     // ---------------- Activity Detector ----------------
     public boolean activityEnabled = false;
     public int activityRedstoneMin = 8;
@@ -286,6 +318,15 @@ public class ChunkFinderConfig {
         entityEspRange = clampInt(entityEspRange, 8, 512);
         playerLogLines = clampInt(playerLogLines, 2, 15);
         activityRedstoneMin = clampInt(activityRedstoneMin, 2, 60);
+        farmMin = clampInt(farmMin, 3, 60);
+        caveMin = clampInt(caveMin, 8, 500);
+        caveRange = clampInt(caveRange, 2, 24);
+        sweepRadius = clampInt(sweepRadius, 5, 24);
+        sweepX = clampInt(sweepX, 0, 4000);
+        sweepY = clampInt(sweepY, 0, 4000);
+        marketMinPercent = clampInt(marketMinPercent, 5, 95);
+        marketMinProfit = clampInt(marketMinProfit, 0, 1000000);
+        marketFee = clampInt(marketFee, 0, 30);
         reachX = clampInt(reachX, 0, 2000);
         reachY = clampInt(reachY, 0, 2000);
         armorScale = clampInt(armorScale, 50, 250);

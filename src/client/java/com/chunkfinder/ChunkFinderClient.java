@@ -47,6 +47,7 @@ public class ChunkFinderClient implements ClientModInitializer {
         PlayerLog.clear();
         SessionTimer.clear();
         ActivityScanner.clear();
+        CaveFinder.clear();
         ReachTest.clear();
         LightFinder.clear();
         ChestEsp.clear();
@@ -123,6 +124,7 @@ public class ChunkFinderClient implements ClientModInitializer {
 
         WorldRenderEvents.AFTER_TRANSLUCENT.register(EspRenderer::render);
         PharaohHud.register();
+        MarketHelper.register();
     }
 
     private static void safe(String name, Runnable r) {
@@ -141,6 +143,9 @@ public class ChunkFinderClient implements ClientModInitializer {
         safe("BaseEsp", () -> BaseEsp.tick(mc));
         safe("PlayerLog", () -> PlayerLog.tick(mc));
         safe("ActivityScanner", () -> ActivityScanner.tick(mc));
+        safe("FarmFinder", () -> FarmFinder.tick(mc));
+        safe("CaveFinder", () -> CaveFinder.tick(mc));
+        safe("SweepMap", () -> SweepMap.tick(mc));
         safe("ReachTest", () -> ReachTest.tick(mc));
         safe("LightFinder", () -> LightFinder.tick(mc));
         safe("OreEsp", () -> OreEsp.tick(mc));

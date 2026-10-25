@@ -63,6 +63,8 @@ public class EspRenderer {
         ItemEsp.collect(boxes, lines, cam);
         EntityEsp.collect(boxes, lines, cam);
         ActivityScanner.collect(boxes, lines, cam);
+        FarmFinder.collect(boxes, lines, cam);
+        CaveFinder.collect(boxes, lines, cam);
         if (boxes.isEmpty() && lines.isEmpty()) return;
 
         Matrix4f m = ms.peek().getPositionMatrix();

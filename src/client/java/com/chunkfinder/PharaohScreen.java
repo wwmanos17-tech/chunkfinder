@@ -391,6 +391,29 @@ public class PharaohScreen extends Screen {
             module("Reach Test", () -> c.reachEnabled, v -> c.reachEnabled = v,
                 slider("Panel X", 0, 600, "", () -> c.reachX, v -> c.reachX = v),
                 slider("Panel Y", 0, 400, "", () -> c.reachY, v -> c.reachY = v)),
+            module("Market Helper", () -> c.marketEnabled, v -> c.marketEnabled = v,
+                slider("Min Discount", 5, 95, "%", () -> c.marketMinPercent, v -> c.marketMinPercent = v),
+                slider("Min Total Profit", 0, 100000, "", () -> c.marketMinProfit, v -> c.marketMinProfit = v),
+                slider("Sale Fee", 0, 30, "%", () -> c.marketFee, v -> c.marketFee = v),
+                toggle("Listed Price Is Per Item", () -> c.marketPerItem, v -> c.marketPerItem = v),
+                toggle("Best Flips Panel", () -> c.marketPanel, v -> c.marketPanel = v),
+                toggle("Forget Learned Prices", () -> false, v -> { if (v) MarketHelper.reset(); })),
+            module("Cave Finder", () -> c.caveEnabled, v -> c.caveEnabled = v,
+                toggle("Deep Mode (below y0, every second)", () -> c.caveDeep, v -> c.caveDeep = v),
+                slider("Smallest Hollow", 8, 500, " blocks", () -> c.caveMin, v -> c.caveMin = v),
+                slider("Range (chunks)", 2, 24, "", () -> c.caveRange, v -> c.caveRange = v),
+                toggle("Show Caves (yellow)", () -> c.caveCaves, v -> c.caveCaves = v),
+                toggle("Show Rooms And Bases (orange)", () -> c.caveRooms, v -> c.caveRooms = v),
+                toggle("Filled Caves", () -> c.caveFill, v -> c.caveFill = v)),
+            module("Farm Finder", () -> c.farmEnabled, v -> c.farmEnabled = v,
+                slider("Entities To Flag", 3, 60, "", () -> c.farmMin, v -> c.farmMin = v),
+                toggle("Underground Only", () -> c.farmUnderground, v -> c.farmUnderground = v),
+                toggle("Labels", () -> c.farmLabels, v -> c.farmLabels = v),
+                toggle("Tracers", () -> c.farmTracer, v -> c.farmTracer = v),
+                toggle("Chat Alerts", () -> c.farmChat, v -> c.farmChat = v)),
+            module("Sweep Map", () -> c.sweepEnabled, v -> c.sweepEnabled = v,
+                slider("Map Radius (chunks)", 5, 24, "", () -> c.sweepRadius, v -> c.sweepRadius = v),
+                toggle("Show Sus And Farms", () -> c.sweepFlags, v -> c.sweepFlags = v)),
             module("Entity ESP", () -> c.entityEspEnabled, v -> c.entityEspEnabled = v,
                 slider("Range", 8, 512, "m", () -> c.entityEspRange, v -> c.entityEspRange = v),
                 toggle("Item Frames (With Items)", () -> c.entityEspFrames, v -> c.entityEspFrames = v),
@@ -1074,7 +1097,7 @@ public class PharaohScreen extends Screen {
             // the staff list can be dragged around while the menu is open (when it is outside the menu window)
             boolean inWindow = mx * d >= wx && mx * d < wx + ww && my * d >= wy && my * d < wy + wh;
             if (button == 0 && !inWindow) {
-                int[][] boxes = {StaffTracker.BOUNDS, RegionMap.BOUNDS, FpsBar.BOUNDS, PlayerLog.BOUNDS, ArmorHud.BOUNDS};
+                int[][] boxes = {StaffTracker.BOUNDS, RegionMap.BOUNDS, FpsBar.BOUNDS, PlayerLog.BOUNDS, ArmorHud.BOUNDS, SweepMap.BOUNDS};
                 for (int i = 0; i < boxes.length; i++) {
                     int[] b = boxes[i];
                     if (b[2] > 0 && mx >= b[0] && mx < b[0] + b[2] && my >= b[1] && my < b[1] + b[3]) {
@@ -1215,9 +1238,12 @@ public class PharaohScreen extends Screen {
                 } else if (dragHud == 4) {
                     ChunkFinderConfig.INSTANCE.playerLogX = (int) mx - hudOffX;
                     ChunkFinderConfig.INSTANCE.playerLogY = (int) my - hudOffY;
-                } else {
+                } else if (dragHud == 5) {
                     ChunkFinderConfig.INSTANCE.armorX = (int) mx - hudOffX;
                     ChunkFinderConfig.INSTANCE.armorY = (int) my - hudOffY;
+                } else {
+                    ChunkFinderConfig.INSTANCE.sweepX = (int) mx - hudOffX;
+                    ChunkFinderConfig.INSTANCE.sweepY = (int) my - hudOffY;
                 }
                 return true;
             }
