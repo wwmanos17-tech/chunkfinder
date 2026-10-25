@@ -399,6 +399,7 @@ public class PharaohScreen extends Screen {
                 toggle("Best Flips Panel", () -> c.marketPanel, v -> c.marketPanel = v),
                 toggle("Forget Learned Prices", () -> false, v -> { if (v) MarketHelper.reset(); })),
             module("Cave Finder", () -> c.caveEnabled, v -> c.caveEnabled = v,
+                toggle("Exact Shape", () -> c.caveExact, v -> c.caveExact = v),
                 toggle("Deep Mode (below y0, every second)", () -> c.caveDeep, v -> c.caveDeep = v),
                 slider("Smallest Hollow", 8, 500, " blocks", () -> c.caveMin, v -> c.caveMin = v),
                 slider("Range (chunks)", 2, 24, "", () -> c.caveRange, v -> c.caveRange = v),

@@ -150,6 +150,7 @@ public class ChunkFinderConfig {
     // ---------------- Cave Finder ----------------
     public boolean caveEnabled = false;
     public boolean caveDeep = true;
+    public boolean caveExact = true;
     public int caveMin = 30;
     public int caveRange = 8;
     public boolean caveCaves = true;
