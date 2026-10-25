@@ -22,7 +22,7 @@ import java.util.Map;
 public final class CaveFinder {
     private CaveFinder() {}
 
-    public record Pocket(int minX, int minY, int minZ, int maxX, int maxY, int maxZ, int size, boolean boxy, int[] parts) {}
+    public record Pocket(int minX, int minY, int minZ, int maxX, int maxY, int maxZ, int size, boolean boxy, int[] parts, int[] edges) {}
 
     private static final Map<ChunkPos, List<Pocket>> POCKETS = new HashMap<>();
     private static final Map<ChunkPos, Long> AT = new HashMap<>();
@@ -115,8 +115,9 @@ public final class CaveFinder {
             int dx = mxx - mnx + 1, dy = mxy - mny + 1, dz = mxz - mnz + 1;
             double fill = size / (double) (dx * dy * dz);
             boolean boxy = fill >= 0.6 && dx >= 3 && dz >= 3 && dy >= 2 && size >= Math.max(minSize, 24);
-            int[] parts = shape(air, done, comp, size, hh, bx, yMin, bz, mnx, mxx, mny, mxy, mnz, mxz);
-            out.add(new Pocket(bx + mnx, yMin + mny, bz + mnz, bx + mxx + 1, yMin + mxy + 1, bz + mxz + 1, size, boxy, parts));
+            int[] edges = outline(air, done, comp, size, hh, bx, yMin, bz, mnx, mxx, mny, mxy, mnz, mxz);
+            int[] parts = new int[0];
+            out.add(new Pocket(bx + mnx, yMin + mny, bz + mnz, bx + mxx + 1, yMin + mxy + 1, bz + mxz + 1, size, boxy, parts, edges));
             if (out.size() >= 40) break;
         }
         return out;
@@ -148,6 +149,61 @@ public final class CaveFinder {
         int n = Math.min(boxes.size(), 80);
         int[] flat = new int[n * 6];
         for (int k = 0; k < n; k++) System.arraycopy(boxes.get(k), 0, flat, k * 6, 6);
+        return flat;
+    }
+
+    /** Marks cell membership while it runs; reuses the 'done' array and clears it again. */
+    private static boolean in(boolean[] m, int hh, int x, int y, int z) {
+        if (x < 0) x = 0; else if (x > 15) x = 15;
+        if (z < 0) z = 0; else if (z > 15) z = 15;
+        if (y < 0) y = 0; else if (y > hh - 1) y = hh - 1;
+        return m[(y * 16 + z) * 16 + x];
+    }
+
+    /** An edge is a real silhouette line when its four neighbouring cells are not a flat wall or all the same. */
+    private static boolean crease(boolean a, boolean b, boolean c, boolean d) {
+        int n = (a ? 1 : 0) + (b ? 1 : 0) + (c ? 1 : 0) + (d ? 1 : 0);
+        if (n == 0 || n == 4) return false;
+        if (n == 2) return a == d;      // diagonal pair = crease; two side by side = flat wall
+        return true;
+    }
+
+    /** Outline of the hollow: only the corners and creases, joined into long straight lines, so you can see inside. */
+    private static int[] outline(boolean[] air, boolean[] mask, int[] comp, int size, int hh, int bx, int yMin, int bz,
+                                 int mnx, int mxx, int mny, int mxy, int mnz, int mxz) {
+        for (int k = 0; k < size; k++) mask[comp[k]] = true;
+        List<int[]> lines = new ArrayList<>();
+        // along X
+        for (int y = mny; y <= mxy + 1; y++) for (int z = mnz; z <= mxz + 1; z++) {
+            int run = -1;
+            for (int x = mnx; x <= mxx + 1; x++) {
+                boolean e = x <= mxx && crease(in(mask, hh, x, y - 1, z - 1), in(mask, hh, x, y - 1, z), in(mask, hh, x, y, z - 1), in(mask, hh, x, y, z));
+                if (e && run < 0) run = x;
+                if (!e && run >= 0) { lines.add(new int[]{bx + run, yMin + y, bz + z, bx + x, yMin + y, bz + z}); run = -1; }
+            }
+        }
+        // along Y
+        for (int x = mnx; x <= mxx + 1; x++) for (int z = mnz; z <= mxz + 1; z++) {
+            int run = -1;
+            for (int y = mny; y <= mxy + 1; y++) {
+                boolean e = y <= mxy && crease(in(mask, hh, x - 1, y, z - 1), in(mask, hh, x - 1, y, z), in(mask, hh, x, y, z - 1), in(mask, hh, x, y, z));
+                if (e && run < 0) run = y;
+                if (!e && run >= 0) { lines.add(new int[]{bx + x, yMin + run, bz + z, bx + x, yMin + y, bz + z}); run = -1; }
+            }
+        }
+        // along Z
+        for (int x = mnx; x <= mxx + 1; x++) for (int y = mny; y <= mxy + 1; y++) {
+            int run = -1;
+            for (int z = mnz; z <= mxz + 1; z++) {
+                boolean e = z <= mxz && crease(in(mask, hh, x - 1, y - 1, z), in(mask, hh, x - 1, y, z), in(mask, hh, x, y - 1, z), in(mask, hh, x, y, z));
+                if (e && run < 0) run = z;
+                if (!e && run >= 0) { lines.add(new int[]{bx + x, yMin + y, bz + run, bx + x, yMin + y, bz + z}); run = -1; }
+            }
+        }
+        for (int k = 0; k < size; k++) mask[comp[k]] = false;
+        int n = Math.min(lines.size(), 500);
+        int[] flat = new int[n * 6];
+        for (int k = 0; k < n; k++) System.arraycopy(lines.get(k), 0, flat, k * 6, 6);
         return flat;
     }
 
@@ -213,11 +269,11 @@ public final class CaveFinder {
                 if (dx * dx + dy * dy + dz * dz > range * range) continue;
                 float r = 1f, g = p.boxy() ? 0.35f : 0.85f, b = 0.15f;
                 float a = p.boxy() ? 0.16f : (cfg.caveFill ? 0.09f : 0f);
-                int[] pt = p.parts();
-                if (cfg.caveExact && pt != null && pt.length > 0) {
-                    for (int k = 0; k + 5 < pt.length; k += 6) {
-                        boxes.add(new EspRenderer.Box(pt[k], pt[k + 1], pt[k + 2], pt[k + 3], pt[k + 4], pt[k + 5], r, g, b, a));
-                        if (++added >= 700) return;
+                int[] ed = p.edges();
+                if (cfg.caveExact && ed != null && ed.length > 0) {
+                    for (int k = 0; k + 5 < ed.length; k += 6) {
+                        lines.add(new EspRenderer.Line(ed[k], ed[k + 1], ed[k + 2], ed[k + 3], ed[k + 4], ed[k + 5], r, g, b));
+                        if (++added >= 4000) return;
                     }
                 } else {
                     boxes.add(new EspRenderer.Box(p.minX(), p.minY(), p.minZ(), p.maxX(), p.maxY(), p.maxZ(), r, g, b, a));

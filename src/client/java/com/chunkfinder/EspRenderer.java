@@ -59,12 +59,14 @@ public class EspRenderer {
         PlayerEsp.collect(boxes, lines, cam);
         ChestEsp.collect(boxes, lines, cam);
         OreEsp.collect(boxes, lines, cam);
-        BaseEsp.collect(boxes, lines, cam);
+        ClusterEsp.collect(boxes, lines, cam);
         ItemEsp.collect(boxes, lines, cam);
         EntityEsp.collect(boxes, lines, cam);
         ActivityScanner.collect(boxes, lines, cam);
         FarmFinder.collect(boxes, lines, cam);
         CaveFinder.collect(boxes, lines, cam);
+        SoundRadar.collect(boxes, lines, cam);
+        PortalCalc.collect(boxes, lines, cam);
         if (boxes.isEmpty() && lines.isEmpty()) return;
 
         Matrix4f m = ms.peek().getPositionMatrix();

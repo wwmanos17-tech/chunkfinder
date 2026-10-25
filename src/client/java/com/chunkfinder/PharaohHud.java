@@ -36,6 +36,8 @@ public class PharaohHud {
                 FpsBar.render(ctx, mc);
                 PlayerLog.render(ctx, mc);
                 ReachTest.render(ctx, mc);
+                SoundRadar.render(ctx, mc);
+                PortalCalc.render(ctx, mc);
                 ArmorHud.render(ctx, mc);
             } catch (Throwable t) {
                 ChunkFinderClient.LOGGER.error("Region map drawing failed", t);
@@ -59,6 +61,7 @@ public class PharaohHud {
         try {
             MinecraftClient mc = MinecraftClient.getInstance();
             if (mc.world == null || mc.player == null) return;
+            FocusCards.begin();
             playerLabels(ctx, mc);
             chestLabels(ctx, mc);
             baseLabels(ctx, mc);
@@ -67,6 +70,7 @@ public class PharaohHud {
             entityLabels(ctx, mc);
             activityLabels(ctx, mc);
             farmLabels(ctx, mc);
+            if (FocusCards.on()) FocusCards.draw(ctx, mc);
             chestSummary(ctx, mc);
         } catch (Throwable t) {
             pausedUntil = System.currentTimeMillis() + 2000;
@@ -86,13 +90,15 @@ public class PharaohHud {
             if (Freecam.isActive()) names.add("FREECAM");
             if (c.playerEspEnabled) names.add("PLAYER ESP");
             if (c.chestEspEnabled) names.add("CHEST ESP");
-            if (c.baseEspEnabled) names.add("BASE ESP");
+            if (c.clusterEnabled) names.add("CLUSTER ESP");
             if (c.itemEspEnabled) names.add("ITEM ESP");
             if (c.entityEspEnabled) names.add("ENTITY ESP");
             if (c.playerLogEnabled) names.add("PLAYER LOGGER");
             if (c.activityEnabled) names.add("ACTIVITY");
             if (c.farmEnabled) names.add("FARM FINDER");
             if (c.caveEnabled) names.add("CAVE FINDER");
+            if (c.soundEnabled) names.add("SOUND RADAR");
+            if (c.portalEnabled) names.add("PORTAL CALC");
             if (c.sweepEnabled) names.add("SWEEP MAP");
             if (c.oreEspEnabled) names.add("ORE ESP");
             if (c.spectatorEnabled) names.add("SPECTATOR ALERT");
@@ -154,6 +160,11 @@ public class PharaohHud {
         ChestEsp.View view = ChestEsp.view(mc, cam);
         for (ChestEsp.Group g : view.groups()) {
             Vec3d gc = g.center();
+            if (FocusCards.on()) {
+                FocusCards.offer("chest" + (int) gc.x + "," + (int) gc.z, Proj.toScreen(mc, new Vec3d(gc.x, (g.y1() + g.y2()) / 2.0, gc.z)),
+                    "CHEST ESP", (int) gc.distanceTo(cam), g.text(), g.count() + " storage", "", "", 0xFFD24D);
+                continue;
+            }
             label(ctx, mc, new Vec3d(gc.x, g.y2() + 1.0, gc.z), g.text() + " [" + (int) gc.distanceTo(cam) + "m]", 0xFFFFD24D);
         }
     }
@@ -175,6 +186,13 @@ public class PharaohHud {
             int dist = (int) Math.hypot(cx - mc.player.getX(), cz - mc.player.getZ());
             String text = recent ? "ACTIVITY: " + s.eventText + " (" + ((now - s.eventAt) / 20) + "s ago)"
                 : "REDSTONE " + s.parts + " parts, " + s.active + " on";
+            if (FocusCards.on()) {
+                FocusCards.offer("act" + e.getKey().x + "," + e.getKey().z, sc, "ACTIVITY", dist,
+                    recent ? s.eventText : "Redstone running", recent ? ((now - s.eventAt) / 20) + "s ago" : s.active + " on",
+                    s.parts + " redstone parts in this chunk", "", recent ? 0x4DFFFF : 0xFFD24D);
+                shown++;
+                continue;
+            }
             ctx.drawCenteredTextWithShadow(mc.textRenderer, Text.literal(text + " [" + dist + "m]"),
                 (int) sc[0], (int) sc[1], recent ? 0xFF4DFFFF : 0xFFFFD24D);
             shown++;
@@ -191,6 +209,12 @@ public class PharaohHud {
             float[] s = Proj.toScreen(mc, new Vec3d(cx, f.maxY() + 1.0, cz));
             if (s == null) continue;
             int dist = (int) Math.hypot(cx - mc.player.getX(), cz - mc.player.getZ());
+            if (FocusCards.on()) {
+                FocusCards.offer("farm" + f.pos().x + "," + f.pos().z, s, "FARM FINDER", dist, f.text(), "score " + f.score(),
+                    "Animals, villagers or mobs packed in one spot", "", 0xFFB520);
+                shown++;
+                continue;
+            }
             ctx.drawCenteredTextWithShadow(mc.textRenderer, Text.literal("FARM: " + f.text() + " [" + dist + "m]"),
                 (int) s[0], (int) s[1], 0xFFFFB520);
             shown++;
@@ -202,6 +226,10 @@ public class PharaohHud {
         for (EntityEsp.Label l : EntityEsp.LABELS) {
             float[] s = Proj.toScreen(mc, new Vec3d(l.x(), l.y(), l.z()));
             if (s == null) continue;
+            if (FocusCards.on()) {
+                FocusCards.offer("ent" + (int) l.x() + "," + (int) l.z() + l.text(), s, "ENTITY ESP", l.dist(), l.text(), "", "", "", l.rgb());
+                continue;
+            }
             ctx.drawCenteredTextWithShadow(mc.textRenderer, Text.literal(l.text() + " [" + l.dist() + "m]"),
                 (int) s[0], (int) s[1], 0xFF000000 | l.rgb());
         }
@@ -212,6 +240,10 @@ public class PharaohHud {
         for (ItemEsp.Label l : ItemEsp.LABELS) {
             float[] s = Proj.toScreen(mc, new Vec3d(l.x(), l.y(), l.z()));
             if (s == null) continue;
+            if (FocusCards.on()) {
+                FocusCards.offer("item" + (int) l.x() + "," + (int) l.z() + l.text(), s, "ITEM ESP", l.dist(), l.text(), "", "", "", l.rgb());
+                continue;
+            }
             ctx.drawCenteredTextWithShadow(mc.textRenderer, Text.literal(l.text() + " [" + l.dist() + "m]"),
                 (int) s[0], (int) s[1], 0xFF000000 | l.rgb());
         }
@@ -232,6 +264,12 @@ public class PharaohHud {
             if (s == null) continue;
             int[] col = SusScanner.strengthColor(rk.get(i).getValue(), need, cfg.susColor);
             int dist = (int) Math.hypot(cx - mc.player.getX(), cz - mc.player.getZ());
+            if (FocusCards.on()) {
+                String what = rk.get(i).getValue() >= need * 2 ? "Very likely a base" : rk.get(i).getValue() >= need + need / 2 ? "Likely a base" : "Maybe a base";
+                FocusCards.offer("sus" + p.x + "," + p.z, s, "CHUNK FINDER", dist, what, rk.get(i).getValue() + " score",
+                    "Chunk " + p.x + ", " + p.z + (lv != null && lv.length > 0 ? "  around y " + lv[0] : ""), "", (col[0] << 16) | (col[1] << 8) | col[2]);
+                continue;
+            }
             ctx.drawCenteredTextWithShadow(mc.textRenderer, Text.literal("SUS " + rk.get(i).getValue() + "  [" + dist + "m]"),
                 (int) s[0], (int) s[1], 0xFF000000 | (col[0] << 16) | (col[1] << 8) | col[2]);
         }
@@ -239,15 +277,20 @@ public class PharaohHud {
 
     private static void baseLabels(DrawContext ctx, MinecraftClient mc) {
         ChunkFinderConfig cfg = ChunkFinderConfig.INSTANCE;
-        if (!cfg.baseEspEnabled || !cfg.baseEspLabels) return;
+        if (!cfg.clusterEnabled || !cfg.clusterLabels) return;
         Vec3d cam = Proj.camPos(mc);
-        for (BaseEsp.Base b : BaseEsp.BASES) {
+        for (ClusterEsp.Base b : ClusterEsp.BASES) {
             Vec3d top = new Vec3d(b.cx(), b.maxY() + 2.5, b.cz());
             int d = (int) Math.sqrt(top.squaredDistanceTo(cam));
             float[] s = Proj.toScreen(mc, top);
             if (s == null) continue;
             int col = 0xFF000000 | b.rgb();
-            ctx.drawCenteredTextWithShadow(mc.textRenderer, Text.literal("BASE: " + b.level() + "  [" + d + "m]"), (int) s[0], (int) s[1] - 5, col);
+            if (FocusCards.on()) {
+                FocusCards.offer("base" + (int) b.cx() + "," + (int) b.cz(), s, "CLUSTER ESP", d, b.verdict(), (int) Math.round(b.score()) + " score",
+                    b.summary(), b.evidence(), b.rgb());
+                continue;
+            }
+            ctx.drawCenteredTextWithShadow(mc.textRenderer, Text.literal("CLUSTER: " + b.verdict() + " (" + b.level() + ")  [" + d + "m]"), (int) s[0], (int) s[1] - 5, col);
             ctx.drawCenteredTextWithShadow(mc.textRenderer, Text.literal(b.summary()), (int) s[0], (int) s[1] + 5, 0xFFE6E6E6);
         }
     }

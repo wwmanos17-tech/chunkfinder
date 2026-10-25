@@ -12,7 +12,7 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /**
- * Only used by the Reach Test panel. It looks at block change, sound and particle packets that the server has already
+ * Only used by the Reach Test panel and the Sound Radar. It looks at block change, sound and particle packets that the server has already
  * sent to your game and adds one to a counter. It does not change them, store them or send anything anywhere.
  */
 @Mixin(ClientPlayNetworkHandler.class)
@@ -30,6 +30,9 @@ public abstract class ClientPlayNetworkHandlerMixin {
     @Inject(method = "onPlaySound", at = @At("HEAD"), require = 0)
     private void chunkfinder$sound(PlaySoundS2CPacket packet, CallbackInfo ci) {
         ReachTest.sound(packet.getX(), packet.getY(), packet.getZ());
+        try {
+            com.chunkfinder.SoundRadar.sound(packet.getX(), packet.getY(), packet.getZ(), packet.getSound().value().id().getPath());
+        } catch (Throwable ignored) { }
     }
 
     @Inject(method = "onParticle", at = @At("HEAD"), require = 0)

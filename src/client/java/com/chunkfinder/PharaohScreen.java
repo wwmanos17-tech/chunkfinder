@@ -341,26 +341,6 @@ public class PharaohScreen extends Screen {
                 toggle("Filled", () -> c.playerEspFill, v -> c.playerEspFill = v),
                 toggle("Tracers", () -> c.playerEspTracers, v -> c.playerEspTracers = v),
                 toggle("Self In Freecam", () -> c.playerEspSelfInFreecam, v -> c.playerEspSelfInFreecam = v)),
-            module("Chest ESP", () -> c.chestEspEnabled, v -> c.chestEspEnabled = v,
-                slider("Range", 16, 2048, "m", () -> c.chestEspRange, v -> c.chestEspRange = v),
-                toggle("Chests", () -> c.espChest, v -> c.espChest = v),
-                toggle("Trapped Chests", () -> c.espTrapped, v -> c.espTrapped = v),
-                toggle("Barrels", () -> c.espBarrel, v -> c.espBarrel = v),
-                toggle("Ender Chests", () -> c.espEnder, v -> c.espEnder = v),
-                toggle("Shulkers", () -> c.espShulker, v -> c.espShulker = v),
-                toggle("Spawners", () -> c.espSpawner, v -> c.espSpawner = v),
-                toggle("Beacons", () -> c.espBeacon, v -> c.espBeacon = v),
-                toggle("Beds", () -> c.espBed, v -> c.espBed = v),
-                toggle("Chest Minecarts", () -> c.espMinecart, v -> c.espMinecart = v),
-                toggle("Filled", () -> c.chestEspFill, v -> c.chestEspFill = v),
-                toggle("Tracers", () -> c.chestEspTracers, v -> c.chestEspTracers = v),
-                toggle("Labels", () -> c.chestEspLabels, v -> c.chestEspLabels = v),
-                toggle("Group Piles", () -> c.chestEspGroup, v -> c.chestEspGroup = v),
-                toggle("Highlight Open / In Use", () -> c.chestEspActive, v -> c.chestEspActive = v),
-                toggle("Summary List", () -> c.chestEspSummary, v -> c.chestEspSummary = v),
-                toggle("Alert: Spawners", () -> c.alertSpawners, v -> c.alertSpawners = v),
-                toggle("Alert: Stashes", () -> c.alertStash, v -> c.alertStash = v),
-                toggle("Alert: Bases", () -> c.alertBases, v -> c.alertBases = v)),
             module("Session Timer", () -> c.timerEnabled, v -> c.timerEnabled = v,
                 keybind("Stopwatch Start / Stop Key", ChunkFinderClient::stopwatchKey),
                 keybind("Stopwatch Reset Key", ChunkFinderClient::stopwatchResetKey),
@@ -398,8 +378,23 @@ public class PharaohScreen extends Screen {
                 toggle("Listed Price Is Per Item", () -> c.marketPerItem, v -> c.marketPerItem = v),
                 toggle("Best Flips Panel", () -> c.marketPanel, v -> c.marketPanel = v),
                 toggle("Forget Learned Prices", () -> false, v -> { if (v) MarketHelper.reset(); })),
+            module("Portal Calc", () -> c.portalEnabled, v -> c.portalEnabled = v,
+                toggle("Learn Portals When I Walk Through", () -> c.portalAuto, v -> c.portalAuto = v),
+                toggle("Show Link Zones In World", () -> c.portalMarks, v -> c.portalMarks = v),
+                toggle("Also Convert Where I Look", () -> c.portalLook, v -> c.portalLook = v),
+                keybind("Save Portal Here Key", ChunkFinderClient::portalSaveKey),
+                keybind("Remove Nearest Portal Key", ChunkFinderClient::portalDeleteKey),
+                toggle("Clear Typed Target (/pgoto)", () -> false, v -> { if (v) PortalCalc.clearTarget(); }),
+                toggle("Forget All Portals On This Server", () -> false, v -> { if (v) PortalCalc.clearServer(); })),
+            module("Sound Radar", () -> c.soundEnabled, v -> c.soundEnabled = v,
+                slider("Show For", 2, 30, " s", () -> c.soundSeconds, v -> c.soundSeconds = v),
+                toggle("Mark Block In World", () -> c.soundMarks, v -> c.soundMarks = v),
+                toggle("Doors And Gates", () -> c.soundDoors, v -> c.soundDoors = v),
+                toggle("Chests And Barrels", () -> c.soundStorage, v -> c.soundStorage = v),
+                toggle("Digging", () -> c.soundDig, v -> c.soundDig = v),
+                toggle("Pistons, Furnaces, Hoppers", () -> c.soundMachines, v -> c.soundMachines = v)),
             module("Cave Finder", () -> c.caveEnabled, v -> c.caveEnabled = v,
-                toggle("Exact Shape", () -> c.caveExact, v -> c.caveExact = v),
+                toggle("Exact Outline (see inside)", () -> c.caveExact, v -> c.caveExact = v),
                 toggle("Deep Mode (below y0, every second)", () -> c.caveDeep, v -> c.caveDeep = v),
                 slider("Smallest Hollow", 8, 500, " blocks", () -> c.caveMin, v -> c.caveMin = v),
                 slider("Range (chunks)", 2, 24, "", () -> c.caveRange, v -> c.caveRange = v),
@@ -430,14 +425,29 @@ public class PharaohScreen extends Screen {
                 toggle("Labels", () -> c.itemEspLabels, v -> c.itemEspLabels = v),
                 toggle("Tracers (Valuable)", () -> c.itemEspTracers, v -> c.itemEspTracers = v),
                 toggle("Chat Alert: Rare Items", () -> c.itemEspAlert, v -> c.itemEspAlert = v)),
-            module("Base ESP", () -> c.baseEspEnabled, v -> c.baseEspEnabled = v,
-                slider("Sensitivity (low = more)", 3, 20, "", () -> c.baseEspSensitivity, v -> c.baseEspSensitivity = v),
-                toggle("Filled", () -> c.baseEspFill, v -> c.baseEspFill = v),
-                toggle("Labels", () -> c.baseEspLabels, v -> c.baseEspLabels = v),
-                toggle("Tracer To Strongest", () -> c.baseEspTracer, v -> c.baseEspTracer = v),
-                toggle("Count Villagers", () -> c.baseEspUseVillagers, v -> c.baseEspUseVillagers = v),
-                toggle("Count Sus Chunks", () -> c.baseEspUseSus, v -> c.baseEspUseSus = v),
-                toggle("Chat Alert", () -> c.baseEspAlert, v -> c.baseEspAlert = v)),
+            module("Cluster ESP", () -> c.clusterEnabled, v -> c.clusterEnabled = v,
+                slider("Sensitivity (low = more)", 3, 20, "", () -> c.clusterSensitivity, v -> c.clusterSensitivity = v),
+                slider("Join Distance", 10, 64, " blocks", () -> c.clusterJoin, v -> c.clusterJoin = v),
+                toggle("Filled", () -> c.clusterFill, v -> c.clusterFill = v),
+                toggle("Labels", () -> c.clusterLabels, v -> c.clusterLabels = v),
+                toggle("Mark Each Part", () -> c.clusterParts, v -> c.clusterParts = v),
+                toggle("Tracer To Strongest", () -> c.clusterTracer, v -> c.clusterTracer = v),
+                toggle("Count Villagers", () -> c.clusterUseVillagers, v -> c.clusterUseVillagers = v),
+                toggle("Count Flagged Chunks", () -> c.clusterUseSus, v -> c.clusterUseSus = v),
+                slider("Scan Range", 16, 2048, "m", () -> c.chestEspRange, v -> c.chestEspRange = v),
+                toggle("Count Chests", () -> c.espChest, v -> c.espChest = v),
+                toggle("Count Trapped Chests", () -> c.espTrapped, v -> c.espTrapped = v),
+                toggle("Count Barrels", () -> c.espBarrel, v -> c.espBarrel = v),
+                toggle("Count Ender Chests", () -> c.espEnder, v -> c.espEnder = v),
+                toggle("Count Shulkers", () -> c.espShulker, v -> c.espShulker = v),
+                toggle("Count Spawners", () -> c.espSpawner, v -> c.espSpawner = v),
+                toggle("Count Beacons", () -> c.espBeacon, v -> c.espBeacon = v),
+                toggle("Count Beds", () -> c.espBed, v -> c.espBed = v),
+                toggle("Count Chest Minecarts", () -> c.espMinecart, v -> c.espMinecart = v),
+                toggle("Chat Alert", () -> c.clusterAlert, v -> c.clusterAlert = v),
+                toggle("Alert: Spawners", () -> c.alertSpawners, v -> c.alertSpawners = v),
+                toggle("Alert: Stashes", () -> c.alertStash, v -> c.alertStash = v),
+                toggle("Alert: Bases", () -> c.alertBases, v -> c.alertBases = v)),
             module("Ore ESP", () -> c.oreEspEnabled, v -> c.oreEspEnabled = v,
                 slider("Range (chunks)", 1, 12, "", () -> c.oreEspRange, v -> c.oreEspRange = v),
                 toggle("Diamond", () -> c.oreDiamond, v -> c.oreDiamond = v),
@@ -489,6 +499,7 @@ public class PharaohScreen extends Screen {
                 keybind("Menu Key", ChunkFinderClient::menuKey),
                 slider("Menu Size (applies on release)", 60, 200, "%", () -> c.menuScale, v -> c.menuScale = v),
                 toggle("Menu Sounds", () -> c.menuSounds, v -> c.menuSounds = v),
+                toggle("Focus Cards (one info card at a time)", () -> c.focusCards, v -> c.focusCards = v),
                 slider("Sound Volume", 0, 100, "%", () -> c.menuSoundVolume, v -> c.menuSoundVolume = v)),
             module("Name Protector", () -> c.nameProtect, v -> c.nameProtect = v),
             module("Tool List", () -> c.showModuleList, v -> c.showModuleList = v)));
@@ -1098,7 +1109,7 @@ public class PharaohScreen extends Screen {
             // the staff list can be dragged around while the menu is open (when it is outside the menu window)
             boolean inWindow = mx * d >= wx && mx * d < wx + ww && my * d >= wy && my * d < wy + wh;
             if (button == 0 && !inWindow) {
-                int[][] boxes = {StaffTracker.BOUNDS, RegionMap.BOUNDS, FpsBar.BOUNDS, PlayerLog.BOUNDS, ArmorHud.BOUNDS, SweepMap.BOUNDS};
+                int[][] boxes = {StaffTracker.BOUNDS, RegionMap.BOUNDS, FpsBar.BOUNDS, PlayerLog.BOUNDS, ArmorHud.BOUNDS, SweepMap.BOUNDS, PortalCalc.BOUNDS};
                 for (int i = 0; i < boxes.length; i++) {
                     int[] b = boxes[i];
                     if (b[2] > 0 && mx >= b[0] && mx < b[0] + b[2] && my >= b[1] && my < b[1] + b[3]) {
@@ -1242,9 +1253,12 @@ public class PharaohScreen extends Screen {
                 } else if (dragHud == 5) {
                     ChunkFinderConfig.INSTANCE.armorX = (int) mx - hudOffX;
                     ChunkFinderConfig.INSTANCE.armorY = (int) my - hudOffY;
-                } else {
+                } else if (dragHud == 6) {
                     ChunkFinderConfig.INSTANCE.sweepX = (int) mx - hudOffX;
                     ChunkFinderConfig.INSTANCE.sweepY = (int) my - hudOffY;
+                } else {
+                    ChunkFinderConfig.INSTANCE.portalX = (int) mx - hudOffX;
+                    ChunkFinderConfig.INSTANCE.portalY = (int) my - hudOffY;
                 }
                 return true;
             }

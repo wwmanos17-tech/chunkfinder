@@ -48,12 +48,15 @@ public class SusScanner {
     private static final int SUS_NEAR = 6;
     private static final Map<ChunkPos, Integer> SCANNED_AT = new HashMap<>();
     private static final Set<ChunkPos> STALE = new HashSet<>();
+    /** How many scans in a row gave a lower score than the one shown, per chunk. */
+    private static final Map<ChunkPos, Integer> LOW = new HashMap<>();
 
     public static void clear() {
         age = 0;
         now = 0;
         SCANNED_AT.clear();
         STALE.clear();
+        LOW.clear();
         FOUND.clear();
         SCORES.clear();
         SPOTS.clear();
@@ -105,26 +108,34 @@ public class SusScanner {
         int maxChunks = FastScan.maxChunks(mc, 2) * (fast ? 6 : 2);
 
         // Close-range rescan: the server only sends the real underground blocks to chunks right next to you, so chunks
-        // inside the near zone are checked again about once a second. A base shows up the moment you get in range.
+        // inside the near zone are checked again very often, closest ring first (every quarter second right around you).
+        // A base shows up the moment you get in range.
         {
             long nearStart = System.nanoTime();
             int nearDone = 0;
-            for (int dx = -SUS_NEAR; dx <= SUS_NEAR && nearDone < 10; dx++) {
-                for (int dz = -SUS_NEAR; dz <= SUS_NEAR && nearDone < 10; dz++) {
-                    ChunkPos np = new ChunkPos(pcx + dx, pcz + dz);
-                    Integer at = SCANNED_AT.get(np);
-                    if (at != null && now - at < FastScan.NEAR_TICKS) continue;
-                    if (nearDone > 0 && System.nanoTime() - nearStart > 3_000_000L) continue;
-                    WorldChunk nc = mc.world.getChunkManager().getWorldChunk(np.x, np.z);
-                    if (nc == null) continue;
-                    SCORES.put(np, score(mc, nc)); // near chunks have real data, so this result replaces the old one
-                    SCANNED_AT.put(np, now);
-                    STALE.remove(np);
-                    nearDone++;
+            ring:
+            for (int r = 0; r <= SUS_NEAR; r++) {
+                int every = r <= 2 ? 5 : (r <= 4 ? 10 : FastScan.NEAR_TICKS);
+                for (int dx = -r; dx <= r; dx++) {
+                    for (int dz = -r; dz <= r; dz++) {
+                        if (Math.max(Math.abs(dx), Math.abs(dz)) != r) continue;
+                        ChunkPos np = new ChunkPos(pcx + dx, pcz + dz);
+                        Integer at = SCANNED_AT.get(np);
+                        if (at != null && now - at < every) continue;
+                        if (nearDone > 0 && System.nanoTime() - nearStart > 5_000_000L) break ring;
+                        if (nearDone >= 40) break ring;
+                        WorldChunk nc = mc.world.getChunkManager().getWorldChunk(np.x, np.z);
+                        if (nc == null) continue;
+                        SCORES.put(np, scoreKeep(mc, nc, r > 2)); // only the chunks right around you hold real deep data
+                        SCANNED_AT.put(np, now);
+                        STALE.remove(np);
+                        nearDone++;
+                    }
                 }
             }
         }
 
+        if (now % 3 == 0) {   // the far list is long, so it is rebuilt every third tick (the near zone above runs every tick)
         List<Cand> todo = new ArrayList<>();
         for (int cx = pcx - radius; cx <= pcx + radius; cx++) {
             for (int cz = pcz - radius; cz <= pcz + radius; cz++) {
@@ -141,14 +152,15 @@ public class SusScanner {
         long start = System.nanoTime();
         int done = 0;
         for (Cand cd : todo) {
-            if (done >= maxChunks) break;
+            if (done >= maxChunks * 3) break;
             if (done > 0 && fast && System.nanoTime() - start > limitNs) break;
             WorldChunk chunk = mc.world.getChunkManager().getWorldChunk(cd.pos().x, cd.pos().z);
             if (chunk == null) continue;
-            SCORES.put(cd.pos(), scoreKeep(mc, chunk, cd.dist2() > SUS_NEAR * SUS_NEAR));
+            SCORES.put(cd.pos(), scoreKeep(mc, chunk, cd.dist2() > 4));
             SCANNED_AT.put(cd.pos(), now);
             STALE.remove(cd.pos());
             done++;
+        }
         }
 
         // a base usually spreads over several chunks, so a chunk also gets a share of the score of its neighbours.
@@ -190,12 +202,17 @@ public class SusScanner {
         long[] sp = SPOTS.get(pos);
         Integer hi = HI.get(pos);
         int sc = score(mc, chunk);
-        if (far && old != null && sc < old) {
-            if (lv != null) LEVELS.put(pos, lv);
-            if (sp != null) SPOTS.put(pos, sp);
-            if (hi != null) HI.put(pos, hi);
-            return old;
+        if (old != null && sc < old) {
+            // a flag never drops from one lower reading: far chunks keep it, close chunks need 3 low readings in a row
+            boolean keep = far || LOW.merge(pos, 1, Integer::sum) < 3;
+            if (keep) {
+                if (lv != null) LEVELS.put(pos, lv);
+                if (sp != null) SPOTS.put(pos, sp);
+                if (hi != null) HI.put(pos, hi);
+                return old;
+            }
         }
+        LOW.remove(pos);
         return sc;
     }
 

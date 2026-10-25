@@ -21,6 +21,8 @@ public class ChunkFinderClient implements ClientModInitializer {
     private static KeyBinding freecamKey;
     private static KeyBinding stopwatchKey;
     private static KeyBinding stopwatchResetKey;
+    private static KeyBinding portalSaveKey;
+    private static KeyBinding portalDeleteKey;
     private static ClientWorld lastWorld = null;
 
     public static KeyBinding menuKey() { return menuKey; }
@@ -28,6 +30,8 @@ public class ChunkFinderClient implements ClientModInitializer {
     public static KeyBinding freecamKey() { return freecamKey; }
     public static KeyBinding stopwatchKey() { return stopwatchKey; }
     public static KeyBinding stopwatchResetKey() { return stopwatchResetKey; }
+    public static KeyBinding portalSaveKey() { return portalSaveKey; }
+    public static KeyBinding portalDeleteKey() { return portalDeleteKey; }
 
     /** Gives a tool a new key, the same as changing it in Options > Controls. */
     public static void rebind(KeyBinding kb, int glfwKey) {
@@ -41,13 +45,14 @@ public class ChunkFinderClient implements ClientModInitializer {
     public static void clearAll() {
         ChunkScanner.clear();
         SusScanner.clear();
-        BaseEsp.clear();
+        ClusterEsp.clear();
         ItemEsp.clear();
         EntityEsp.clear();
         PlayerLog.clear();
         SessionTimer.clear();
         ActivityScanner.clear();
         CaveFinder.clear();
+        SoundRadar.clear();
         ReachTest.clear();
         LightFinder.clear();
         ChestEsp.clear();
@@ -73,6 +78,11 @@ public class ChunkFinderClient implements ClientModInitializer {
         stopwatchResetKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
             "key.chunkfinder.stopwatch_reset", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_UNKNOWN, "key.categories.chunkfinder"));
 
+        portalSaveKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
+            "key.chunkfinder.portal_save", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_UNKNOWN, "key.categories.chunkfinder"));
+        portalDeleteKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
+            "key.chunkfinder.portal_delete", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_UNKNOWN, "key.categories.chunkfinder"));
+
         // Freecam reads the keyboard and releases the real movement keys before the player's own tick.
         ClientTickEvents.START_CLIENT_TICK.register(Freecam::tick);
 
@@ -82,6 +92,12 @@ public class ChunkFinderClient implements ClientModInitializer {
             }
             while (stopwatchResetKey.wasPressed()) {
                 if (ChunkFinderConfig.INSTANCE.timerEnabled) SessionTimer.resetStopwatch();
+            }
+            while (portalSaveKey.wasPressed()) {
+                if (ChunkFinderConfig.INSTANCE.portalEnabled) PortalCalc.saveHere(mc);
+            }
+            while (portalDeleteKey.wasPressed()) {
+                if (ChunkFinderConfig.INSTANCE.portalEnabled) PortalCalc.deleteNearest(mc);
             }
             while (freecamKey.wasPressed()) {
                 ChunkFinderConfig cfg = ChunkFinderConfig.INSTANCE;
@@ -100,7 +116,7 @@ public class ChunkFinderClient implements ClientModInitializer {
                 cfg.enabled = !cfg.enabled;
                 ChunkScanner.clear();
                 SusScanner.clear();
-        BaseEsp.clear();
+        ClusterEsp.clear();
                 ChunkFinderConfig.save();
                 if (mc.player != null) {
                     mc.player.sendMessage(Text.literal("Chunk Finder: " + (cfg.enabled ? "ON" : "OFF")), true);
@@ -125,6 +141,7 @@ public class ChunkFinderClient implements ClientModInitializer {
         WorldRenderEvents.AFTER_TRANSLUCENT.register(EspRenderer::render);
         PharaohHud.register();
         MarketHelper.register();
+        PortalCalc.registerCommands();
     }
 
     private static void safe(String name, Runnable r) {
@@ -140,11 +157,12 @@ public class ChunkFinderClient implements ClientModInitializer {
         safe("ChestEsp", () -> ChestEsp.tick(mc));
         safe("ChunkScanner", () -> ChunkScanner.tick(mc));
         safe("SusScanner", () -> SusScanner.tick(mc));
-        safe("BaseEsp", () -> BaseEsp.tick(mc));
+        safe("ClusterEsp", () -> ClusterEsp.tick(mc));
         safe("PlayerLog", () -> PlayerLog.tick(mc));
         safe("ActivityScanner", () -> ActivityScanner.tick(mc));
         safe("FarmFinder", () -> FarmFinder.tick(mc));
         safe("CaveFinder", () -> CaveFinder.tick(mc));
+        safe("PortalCalc", () -> PortalCalc.tick(mc));
         safe("SweepMap", () -> SweepMap.tick(mc));
         safe("ReachTest", () -> ReachTest.tick(mc));
         safe("LightFinder", () -> LightFinder.tick(mc));

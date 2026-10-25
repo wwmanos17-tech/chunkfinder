@@ -33,10 +33,14 @@ public final class MarketHelper {
     private static final Pattern PRICE = Pattern.compile("\\$\\s*([0-9][0-9,]*(?:\\.[0-9]+)?)\\s*([kKmMbBtT]?)");
 
     /** Unit prices seen on Auction House pages, per item. */
-    private static final Map<String, List<Double>> ASKS = new HashMap<>();
+    private static final Map<String, List<Entry>> ASKS = new HashMap<>();
     /** Unit prices seen on Orders pages (what buyers pay), per item. */
-    private static final Map<String, List<Double>> BIDS = new HashMap<>();
-    private static final Set<Integer> SEEN = new HashSet<>();
+    private static final Map<String, List<Entry>> BIDS = new HashMap<>();
+    private static final Map<Integer, Long> SEEN = new HashMap<>();
+    /** Prices older than this are forgotten: the listing may be sold or the order filled by now. */
+    private static final long FRESH_MS = 180_000L;
+
+    private record Entry(double unit, int count, long at, int sig) {}
 
     private record Row(int sx, int sy, String key, String name, int count, double unit, double total) {}
     private record Deal(Row row, double refUnit, double profitUnit, double profitTotal, double pct, String source) {}
@@ -84,9 +88,15 @@ public final class MarketHelper {
 
     private static String keyOf(ItemStack st) {
         String id = Registries.ITEM.getId(st.getItem()).getPath();
-        // enchanted or renamed items are not the same product as the plain item, so they get their own key
-        if (st.hasEnchantments() || st.contains(DataComponentTypes.CUSTOM_NAME)) return id + "|" + st.getName().getString();
-        return id;
+        // the display name tells potions, arrows, eggs, enchanted books and renamed items apart, so they never mix
+        return id + "|" + st.getName().getString();
+    }
+
+    /** Items whose value depends on something I cannot compare (wear, box contents) are never judged. */
+    private static boolean unjudgeable(ItemStack st) {
+        if (st.isDamaged()) return true;
+        String id = Registries.ITEM.getId(st.getItem()).getPath();
+        return id.endsWith("shulker_box") || id.equals("bundle");
     }
 
     private static double median(List<Double> l) {
@@ -96,10 +106,19 @@ public final class MarketHelper {
         return n % 2 == 1 ? c.get(n / 2) : (c.get(n / 2 - 1) + c.get(n / 2)) / 2.0;
     }
 
-    private static void remember(Map<String, List<Double>> map, String key, double unit) {
-        List<Double> l = map.computeIfAbsent(key, k -> new ArrayList<>());
-        l.add(unit);
+    private static void remember(Map<String, List<Entry>> map, String key, double unit, int count, int sig) {
+        List<Entry> l = map.computeIfAbsent(key, k -> new ArrayList<>());
+        l.add(new Entry(unit, count, System.currentTimeMillis(), sig));
         if (l.size() > 80) l.remove(0);
+    }
+
+    /** Fresh entries only; throws away the old ones. */
+    private static List<Entry> fresh(Map<String, List<Entry>> map, String key) {
+        List<Entry> l = map.get(key);
+        if (l == null) return null;
+        long now = System.currentTimeMillis();
+        l.removeIf(e -> now - e.at() > FRESH_MS);
+        return l.isEmpty() ? null : l;
     }
 
     public static String money(double v) {
@@ -134,6 +153,7 @@ public final class MarketHelper {
             if (slot.inventory == mc.player.getInventory()) continue;
             ItemStack st = slot.getStack();
             if (st.isEmpty()) continue;
+            if (unjudgeable(st)) continue;
             double price = parsePrice(st);
             if (price <= 0) continue;
             int count = Math.max(1, st.getCount());
@@ -145,8 +165,14 @@ public final class MarketHelper {
         if (rows.isEmpty()) return;
 
         // learn from each page once (the same page is drawn many times a second)
-        if (SEEN.add(sig)) {
-            for (Row r : rows) remember(orders ? BIDS : ASKS, r.key(), r.unit());
+        long nowMs = System.currentTimeMillis();
+        Long last = SEEN.get(sig);
+        if (last == null || nowMs - last > 3000) {
+            Map<String, List<Entry>> map = orders ? BIDS : ASKS;
+            final int fsig = sig;
+            for (List<Entry> l : map.values()) l.removeIf(e -> e.sig() == fsig);   // replace this page's old prices
+            for (Row r : rows) remember(map, r.key(), r.unit(), r.count(), sig);
+            SEEN.put(sig, nowMs);
         }
 
         double fee = cfg.marketFee / 100.0;
@@ -185,7 +211,7 @@ public final class MarketHelper {
             }
             if (deals.isEmpty()) {
                 int seen = 0;
-                for (List<Double> l : ASKS.values()) seen += l.size();
+                for (List<Entry> l : ASKS.values()) seen += l.size();
                 lines.add("none yet. Open more pages so I can learn prices (" + seen + " seen)");
             }
             int w = 0;
@@ -213,17 +239,22 @@ public final class MarketHelper {
         double ref;
         double profitUnit;
         String src;
+        int maxQty = r.count();
         if (!orders) {
             // an Auction listing: worth buying when it is far below what the item sells for
-            List<Double> bids = BIDS.get(r.key());
+            List<Entry> bids = fresh(BIDS, r.key());
             double bid = 0;
-            if (bids != null) for (double b : bids) bid = Math.max(bid, b);
-            List<Double> asks = ASKS.get(r.key());
+            int bidCount = 0;
+            if (bids != null) for (Entry b : bids) if (b.unit() > bid) { bid = b.unit(); bidCount = b.count(); }
+            List<Entry> asks = fresh(ASKS, r.key());
             if (bid > 0) {
                 ref = bid * (1 - fee);
                 src = "order";
+                maxQty = Math.max(1, bidCount);   // the order only wants this many
             } else if (asks != null && asks.size() >= 3) {
-                ref = median(asks) * (1 - fee);
+                List<Double> prices = new ArrayList<>();
+                for (Entry e : asks) prices.add(e.unit());
+                ref = median(prices) * (1 - fee);
                 src = "avg";
             } else {
                 return null;
@@ -231,17 +262,19 @@ public final class MarketHelper {
             profitUnit = ref - r.unit();
         } else {
             // an Order: worth filling when the cheapest Auction listing of the item is far below what it pays
-            List<Double> asks = ASKS.get(r.key());
-            if (asks == null || asks.isEmpty()) return null;
+            List<Entry> asks = fresh(ASKS, r.key());
+            if (asks == null) return null;
             double cheapest = Double.MAX_VALUE;
-            for (double a : asks) cheapest = Math.min(cheapest, a);
+            int cheapQty = 1;
+            for (Entry a : asks) if (a.unit() < cheapest) { cheapest = a.unit(); cheapQty = a.count(); }
+            maxQty = Math.max(1, cheapQty);       // only that many are listed at the cheap price
             ref = r.unit() * (1 - fee);
             profitUnit = ref - cheapest;
             src = "AH";
         }
         if (ref <= 0 || profitUnit <= 0) return null;
         double pct = profitUnit / ref * 100.0;
-        double total = profitUnit * r.count();
+        double total = profitUnit * Math.min(r.count(), maxQty);
         if (pct < cfg.marketMinPercent || total < cfg.marketMinProfit) return null;
         return new Deal(r, ref, profitUnit, total, pct, src);
     }

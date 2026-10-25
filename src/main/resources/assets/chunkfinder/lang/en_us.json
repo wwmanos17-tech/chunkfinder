@@ -4,5 +4,7 @@
   "key.chunkfinder.settings": "Open Pharaoh Menu",
   "key.chunkfinder.freecam": "Toggle Freecam",
   "key.chunkfinder.stopwatch": "Stopwatch Start / Stop",
-  "key.chunkfinder.stopwatch_reset": "Stopwatch Reset"
+  "key.chunkfinder.stopwatch_reset": "Stopwatch Reset",
+  "key.chunkfinder.portal_save": "Save Portal Here",
+  "key.chunkfinder.portal_delete": "Remove Nearest Saved Portal"
 }

@@ -256,7 +256,7 @@ public class ChestEsp {
 
     public static void tick(MinecraftClient mc) {
         ChunkFinderConfig cfg = ChunkFinderConfig.INSTANCE;
-        if ((!cfg.chestEspEnabled && !cfg.baseEspEnabled) || mc.world == null || mc.player == null) return;
+        if ((!cfg.chestEspEnabled && !cfg.clusterEnabled) || mc.world == null || mc.player == null) return;
         if (timer-- > 0) return;
         timer = 3;
         ticks += 3;

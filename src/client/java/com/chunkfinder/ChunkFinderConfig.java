@@ -55,6 +55,7 @@ public class ChunkFinderConfig {
     public boolean susTracer = false;
     /** Draw boxes on the exact blocks that gave a chunk away, instead of flat chunk-sized slabs. */
     public boolean exactSpots = true;
+    public boolean focusCards = true;
     public int susListCount = 5;
     public boolean detectLight = true;
     /** Underground lights needed in a chunk before it is flagged (1..20). */
@@ -147,6 +148,31 @@ public class ChunkFinderConfig {
     public boolean marketPerItem = false;
     public boolean marketPanel = true;
 
+    // ---------------- Portal Calc ----------------
+    public boolean portalEnabled = false;
+    public boolean portalAuto = true;
+    public boolean portalMarks = true;
+    public boolean portalLook = false;
+    public int portalX = 4;
+    public int portalY = 200;
+    public java.util.List<PortalSave> portalSaved = new java.util.ArrayList<>();
+
+    /** One portal you walked through or saved: dim 0 = Overworld, 1 = Nether, per server. */
+    public static class PortalSave {
+        public int dim;
+        public int x, y, z;
+        public String server = "";
+    }
+
+    // ---------------- Sound Radar ----------------
+    public boolean soundEnabled = false;
+    public int soundSeconds = 8;
+    public boolean soundMarks = true;
+    public boolean soundDoors = true;
+    public boolean soundStorage = true;
+    public boolean soundDig = true;
+    public boolean soundMachines = true;
+
     // ---------------- Cave Finder ----------------
     public boolean caveEnabled = false;
     public boolean caveDeep = true;
@@ -201,14 +227,16 @@ public class ChunkFinderConfig {
     public boolean itemEspAlert = true;
 
     // ---------------- Base ESP ----------------
-    public boolean baseEspEnabled = false;
-    public int baseEspSensitivity = 5;
-    public boolean baseEspFill = true;
-    public boolean baseEspLabels = true;
-    public boolean baseEspTracer = true;
-    public boolean baseEspAlert = true;
-    public boolean baseEspUseVillagers = true;
-    public boolean baseEspUseSus = true;
+    public boolean clusterEnabled = false;
+    public int clusterSensitivity = 5;
+    public int clusterJoin = 28;
+    public boolean clusterFill = true;
+    public boolean clusterLabels = true;
+    public boolean clusterTracer = true;
+    public boolean clusterAlert = true;
+    public boolean clusterParts = true;
+    public boolean clusterUseVillagers = true;
+    public boolean clusterUseSus = true;
 
     // ---------------- Ore ESP ----------------
     public boolean oreEspEnabled = false;
@@ -314,13 +342,20 @@ public class ChunkFinderConfig {
         playerEspRange = clampInt(playerEspRange, 16, 1024);
         chestEspRange = clampInt(chestEspRange, 16, 2048);
         oreEspRange = clampInt(oreEspRange, 1, 12);
-        baseEspSensitivity = clampInt(baseEspSensitivity, 3, 20);
+        clusterSensitivity = clampInt(clusterSensitivity, 3, 20);
+        clusterJoin = clampInt(clusterJoin, 10, 64);
+        chestEspEnabled = false;   // Chest ESP was replaced by Cluster ESP; its scanner still runs for Cluster ESP
         itemEspRange = clampInt(itemEspRange, 8, 512);
         entityEspRange = clampInt(entityEspRange, 8, 512);
         playerLogLines = clampInt(playerLogLines, 2, 15);
         activityRedstoneMin = clampInt(activityRedstoneMin, 2, 60);
         farmMin = clampInt(farmMin, 3, 60);
         caveMin = clampInt(caveMin, 8, 500);
+        soundSeconds = clampInt(soundSeconds, 2, 30);
+        portalX = clampInt(portalX, 0, 3000);
+        portalY = clampInt(portalY, 0, 3000);
+        if (portalSaved == null) portalSaved = new java.util.ArrayList<>();
+        portalSaved.removeIf(p -> p == null || (p.dim != 0 && p.dim != 1));
         caveRange = clampInt(caveRange, 2, 24);
         sweepRadius = clampInt(sweepRadius, 5, 24);
         sweepX = clampInt(sweepX, 0, 4000);
