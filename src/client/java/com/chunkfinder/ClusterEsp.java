@@ -89,6 +89,7 @@ public class ClusterEsp {
                 pts.add(new Pt(e.getKey().getStartX() + 8, y, e.getKey().getStartZ() + 8, 2.0, 8));
             }
         }
+        if (cfg.clusterDeepOnly) pts.removeIf(q -> q.y() > cfg.susMaxY + 1);
         JOIN = cfg.clusterJoin;
         BASES = build(pts, cfg, mc);
     }

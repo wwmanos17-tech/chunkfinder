@@ -98,8 +98,8 @@ public final class PlayerLog {
             cols.add(e.entered() ? 0xFFE8C170 : 0xFF9A9078);
         }
         String title = "PLAYERS " + NOW.size() + " in range";
-        int w = mc.textRenderer.getWidth(title);
-        for (String r : rows) w = Math.max(w, mc.textRenderer.getWidth(r));
+        int w = PFont.w(mc, title);
+        for (String r : rows) w = Math.max(w, PFont.w(mc, r));
         w += 12;
         int h = 14 + Math.max(1, rows.size()) * 10 + 2;
         int x = Math.max(0, Math.min(cfg.playerLogX, mc.getWindow().getScaledWidth() - w));
@@ -107,12 +107,12 @@ public final class PlayerLog {
         BOUNDS[0] = x; BOUNDS[1] = y; BOUNDS[2] = w; BOUNDS[3] = h;
 
         HudPanel.draw(ctx, x, y, w, h);
-        ctx.drawTextWithShadow(mc.textRenderer, Text.literal(title), x + 6, y + 3, 0xFFF4ECD6);
+        ctx.drawTextWithShadow(mc.textRenderer, PFont.t(title), x + 6, y + 3, 0xFFF4ECD6);
         if (rows.isEmpty()) {
-            ctx.drawTextWithShadow(mc.textRenderer, Text.literal("nobody yet"), x + 6, y + 14, 0xFF9A9078);
+            ctx.drawTextWithShadow(mc.textRenderer, PFont.t("nobody yet"), x + 6, y + 14, 0xFF9A9078);
         }
         for (int i = 0; i < rows.size(); i++) {
-            ctx.drawTextWithShadow(mc.textRenderer, Text.literal(rows.get(i)), x + 6, y + 14 + i * 10, cols.get(i));
+            ctx.drawTextWithShadow(mc.textRenderer, PFont.t(rows.get(i)), x + 6, y + 14 + i * 10, cols.get(i));
         }
     }
 }

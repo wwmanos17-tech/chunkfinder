@@ -64,9 +64,9 @@ public class EspRenderer {
         EntityEsp.collect(boxes, lines, cam);
         ActivityScanner.collect(boxes, lines, cam);
         FarmFinder.collect(boxes, lines, cam);
-        CaveFinder.collect(boxes, lines, cam);
         SoundRadar.collect(boxes, lines, cam);
         PortalCalc.collect(boxes, lines, cam);
+        RtpHunter.collect(boxes, lines, cam);
         if (boxes.isEmpty() && lines.isEmpty()) return;
 
         Matrix4f m = ms.peek().getPositionMatrix();

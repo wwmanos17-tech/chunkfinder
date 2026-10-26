@@ -54,7 +54,7 @@ public final class ArmorHud {
                 if (cfg.armorNumber) sb.append(left).append('/').append(s.getMaxDamage());
                 if (cfg.armorText) sb.append(sb.length() > 0 ? "  " : "").append(pct).append('%');
                 labels[i] = sb.toString();
-                textW = Math.max(textW, mc.textRenderer.getWidth(labels[i]));
+                textW = Math.max(textW, PFont.w(mc, labels[i]));
             }
         }
         // size of one slot, in unscaled units
@@ -85,10 +85,10 @@ public final class ArmorHud {
                 String t = labels[i];
                 if (!t.isEmpty()) {
                     if (horiz) {
-                        ctx.drawTextWithShadow(mc.textRenderer, Text.literal(t),
-                            2 + i * cellW + (cellW - mc.textRenderer.getWidth(t)) / 2, cy + 18, colors[i]);
+                        ctx.drawTextWithShadow(mc.textRenderer, PFont.t(t),
+                            2 + i * cellW + (cellW - PFont.w(mc, t)) / 2, cy + 18, colors[i]);
                     } else {
-                        ctx.drawTextWithShadow(mc.textRenderer, Text.literal(t), cx + 20, cy + 4, colors[i]);
+                        ctx.drawTextWithShadow(mc.textRenderer, PFont.t(t), cx + 20, cy + 4, colors[i]);
                     }
                 }
             }

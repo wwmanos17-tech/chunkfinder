@@ -194,7 +194,7 @@ public final class MarketHelper {
             ctx.getMatrices().push();
             ctx.getMatrices().translate(r.sx(), r.sy(), 400f);
             ctx.getMatrices().scale(0.5f, 0.5f, 1f);
-            ctx.drawTextWithShadow(mc.textRenderer, Text.literal("+" + Math.round(d.pct()) + "%"), 1, 1, col);
+            ctx.drawTextWithShadow(mc.textRenderer, PFont.t("+" + Math.round(d.pct()) + "%"), 1, 1, col);
             ctx.getMatrices().pop();
         }
 
@@ -215,7 +215,7 @@ public final class MarketHelper {
                 lines.add("none yet. Open more pages so I can learn prices (" + seen + " seen)");
             }
             int w = 0;
-            for (String s : lines) w = Math.max(w, mc.textRenderer.getWidth(s));
+            for (String s : lines) w = Math.max(w, PFont.w(mc, s));
             w += 12;
             int h = 6 + lines.size() * 10 + 4;
             int sw = mc.getWindow().getScaledWidth();
@@ -224,7 +224,7 @@ public final class MarketHelper {
             int y = gy;
             HudPanel.draw(ctx, x, y, w, h);
             for (int i = 0; i < lines.size(); i++) {
-                ctx.drawTextWithShadow(mc.textRenderer, Text.literal(lines.get(i)), x + 6, y + 4 + i * 10,
+                ctx.drawTextWithShadow(mc.textRenderer, PFont.t(lines.get(i)), x + 6, y + 4 + i * 10,
                     i == 0 ? 0xFFF4ECD6 : 0xFF7CFF8A);
             }
         }

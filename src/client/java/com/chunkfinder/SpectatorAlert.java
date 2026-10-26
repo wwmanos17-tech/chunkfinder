@@ -161,13 +161,13 @@ public class SpectatorAlert {
                     ctx.getMatrices().push();
                     ctx.getMatrices().translate(w / 2f + ox, baseY, 0f);
                     ctx.getMatrices().scale(ns, ns, 1f);
-                    ctx.drawCenteredTextWithShadow(mc.textRenderer, Text.literal(shownName), 0, 0, color);
+                    ctx.drawCenteredTextWithShadow(mc.textRenderer, PFont.t(shownName), 0, 0, color);
                     ctx.getMatrices().pop();
                 }
                 ctx.getMatrices().push();
                 ctx.getMatrices().translate(w / 2f + (burst ? rnd.nextInt(5) - 2 : 0), h / 2f + h * 0.04f, 0f);
                 ctx.getMatrices().scale(ws, ws, 1f);
-                ctx.drawCenteredTextWithShadow(mc.textRenderer, Text.literal("WATCHING YOU"), 0, 0, (an << 24) | 0xD8372D);
+                ctx.drawCenteredTextWithShadow(mc.textRenderer, PFont.t("WATCHING YOU"), 0, 0, (an << 24) | 0xD8372D);
                 ctx.getMatrices().pop();
                 int bits = burst ? 22 : 10;
                 for (int i = 0; i < bits; i++) {
@@ -187,7 +187,7 @@ public class SpectatorAlert {
                 ctx.getMatrices().push();
                 ctx.getMatrices().translate(w / 2f, h / 2f - 10, 0f);
                 ctx.getMatrices().scale(2f, 2f, 1f);
-                ctx.drawCenteredTextWithShadow(mc.textRenderer, Text.literal(cfg.spectatorMessage), 0, 0,
+                ctx.drawCenteredTextWithShadow(mc.textRenderer, PFont.t(cfg.spectatorMessage), 0, 0,
                     (a << 24) | 0xFFFF55);
                 ctx.getMatrices().pop();
             }

@@ -38,6 +38,7 @@ public class PharaohHud {
                 ReachTest.render(ctx, mc);
                 SoundRadar.render(ctx, mc);
                 PortalCalc.render(ctx, mc);
+                RtpHunter.render(ctx, mc);
                 ArmorHud.render(ctx, mc);
             } catch (Throwable t) {
                 ChunkFinderClient.LOGGER.error("Region map drawing failed", t);
@@ -96,23 +97,23 @@ public class PharaohHud {
             if (c.playerLogEnabled) names.add("PLAYER LOGGER");
             if (c.activityEnabled) names.add("ACTIVITY");
             if (c.farmEnabled) names.add("FARM FINDER");
-            if (c.caveEnabled) names.add("CAVE FINDER");
             if (c.soundEnabled) names.add("SOUND RADAR");
             if (c.portalEnabled) names.add("PORTAL CALC");
+            if (c.huntEnabled) names.add("RTP HUNTER");
             if (c.sweepEnabled) names.add("SWEEP MAP");
             if (c.oreEspEnabled) names.add("ORE ESP");
             if (c.spectatorEnabled) names.add("SPECTATOR ALERT");
             if (names.isEmpty()) return;
 
-            names.sort((a, b) -> Integer.compare(mc.textRenderer.getWidth(b), mc.textRenderer.getWidth(a)));
+            names.sort((a, b) -> Integer.compare(PFont.w(mc, b), PFont.w(mc, a)));
             int sw = mc.getWindow().getScaledWidth();
             int y = 4;
             for (String n : names) {
-                int w = mc.textRenderer.getWidth(n);
+                int w = PFont.w(mc, n);
                 int right = sw - 3;
                 ctx.fill(right - w - 6, y, right, y + 11, 0xB0101018);
                 ctx.fill(right - 2, y, right, y + 11, 0xFFE0A526);
-                ctx.drawTextWithShadow(mc.textRenderer, Text.literal(n), right - w - 3, y + 2, 0xFFE6E6E6);
+                ctx.drawTextWithShadow(mc.textRenderer, PFont.t(n), right - w - 3, y + 2, 0xFFE6E6E6);
                 y += 12;
             }
         } catch (Throwable t) {
@@ -193,7 +194,7 @@ public class PharaohHud {
                 shown++;
                 continue;
             }
-            ctx.drawCenteredTextWithShadow(mc.textRenderer, Text.literal(text + " [" + dist + "m]"),
+            ctx.drawCenteredTextWithShadow(mc.textRenderer, PFont.t(text + " [" + dist + "m]"),
                 (int) sc[0], (int) sc[1], recent ? 0xFF4DFFFF : 0xFFFFD24D);
             shown++;
         }
@@ -215,7 +216,7 @@ public class PharaohHud {
                 shown++;
                 continue;
             }
-            ctx.drawCenteredTextWithShadow(mc.textRenderer, Text.literal("FARM: " + f.text() + " [" + dist + "m]"),
+            ctx.drawCenteredTextWithShadow(mc.textRenderer, PFont.t("FARM: " + f.text() + " [" + dist + "m]"),
                 (int) s[0], (int) s[1], 0xFFFFB520);
             shown++;
         }
@@ -230,7 +231,7 @@ public class PharaohHud {
                 FocusCards.offer("ent" + (int) l.x() + "," + (int) l.z() + l.text(), s, "ENTITY ESP", l.dist(), l.text(), "", "", "", l.rgb());
                 continue;
             }
-            ctx.drawCenteredTextWithShadow(mc.textRenderer, Text.literal(l.text() + " [" + l.dist() + "m]"),
+            ctx.drawCenteredTextWithShadow(mc.textRenderer, PFont.t(l.text() + " [" + l.dist() + "m]"),
                 (int) s[0], (int) s[1], 0xFF000000 | l.rgb());
         }
     }
@@ -244,7 +245,7 @@ public class PharaohHud {
                 FocusCards.offer("item" + (int) l.x() + "," + (int) l.z() + l.text(), s, "ITEM ESP", l.dist(), l.text(), "", "", "", l.rgb());
                 continue;
             }
-            ctx.drawCenteredTextWithShadow(mc.textRenderer, Text.literal(l.text() + " [" + l.dist() + "m]"),
+            ctx.drawCenteredTextWithShadow(mc.textRenderer, PFont.t(l.text() + " [" + l.dist() + "m]"),
                 (int) s[0], (int) s[1], 0xFF000000 | l.rgb());
         }
     }
@@ -270,7 +271,7 @@ public class PharaohHud {
                     "Chunk " + p.x + ", " + p.z + (lv != null && lv.length > 0 ? "  around y " + lv[0] : ""), "", (col[0] << 16) | (col[1] << 8) | col[2]);
                 continue;
             }
-            ctx.drawCenteredTextWithShadow(mc.textRenderer, Text.literal("SUS " + rk.get(i).getValue() + "  [" + dist + "m]"),
+            ctx.drawCenteredTextWithShadow(mc.textRenderer, PFont.t("SUS " + rk.get(i).getValue() + "  [" + dist + "m]"),
                 (int) s[0], (int) s[1], 0xFF000000 | (col[0] << 16) | (col[1] << 8) | col[2]);
         }
     }
@@ -290,8 +291,8 @@ public class PharaohHud {
                     b.summary(), b.evidence(), b.rgb());
                 continue;
             }
-            ctx.drawCenteredTextWithShadow(mc.textRenderer, Text.literal("CLUSTER: " + b.verdict() + " (" + b.level() + ")  [" + d + "m]"), (int) s[0], (int) s[1] - 5, col);
-            ctx.drawCenteredTextWithShadow(mc.textRenderer, Text.literal(b.summary()), (int) s[0], (int) s[1] + 5, 0xFFE6E6E6);
+            ctx.drawCenteredTextWithShadow(mc.textRenderer, PFont.t("CLUSTER: " + b.verdict() + " (" + b.level() + ")  [" + d + "m]"), (int) s[0], (int) s[1] - 5, col);
+            ctx.drawCenteredTextWithShadow(mc.textRenderer, PFont.t(b.summary()), (int) s[0], (int) s[1] + 5, 0xFFE6E6E6);
         }
     }
 
@@ -300,12 +301,12 @@ public class PharaohHud {
         if (!cfg.chestEspEnabled || !cfg.chestEspSummary || ChestEsp.COUNTS.isEmpty()) return;
 
         int y = 8;
-        ctx.drawTextWithShadow(mc.textRenderer, Text.literal("Chest ESP"), 8, y, 0xFFFFE680);
+        ctx.drawTextWithShadow(mc.textRenderer, PFont.t("Chest ESP"), 8, y, 0xFFFFE680);
         y += 11;
         for (Map.Entry<ChestEsp.Kind, Integer> e : ChestEsp.COUNTS.entrySet()) {
             ChestEsp.Kind k = e.getKey();
             int rgb = ((int) (k.r * 255) << 16) | ((int) (k.g * 255) << 8) | (int) (k.b * 255);
-            ctx.drawTextWithShadow(mc.textRenderer, Text.literal(k.label + ": " + e.getValue()), 8, y, 0xFF000000 | rgb);
+            ctx.drawTextWithShadow(mc.textRenderer, PFont.t(k.label + ": " + e.getValue()), 8, y, 0xFF000000 | rgb);
             y += 10;
         }
     }
@@ -314,6 +315,6 @@ public class PharaohHud {
         if (text.isEmpty()) return;
         float[] s = Proj.toScreen(mc, pos);
         if (s == null) return;
-        ctx.drawCenteredTextWithShadow(mc.textRenderer, Text.literal(text), (int) s[0], (int) s[1], color);
+        ctx.drawCenteredTextWithShadow(mc.textRenderer, PFont.t(text), (int) s[0], (int) s[1], color);
     }
 }

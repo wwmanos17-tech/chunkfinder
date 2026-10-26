@@ -48,6 +48,9 @@ public class ChunkFinderConfig {
     public boolean fastScan = true;
     /** 1..10 - higher flags more suspicious-looking chunks. */
     public int susSensitivity = 5;
+    /** Sus Chunks only look at things at or below this height, so the surface and the already-griefed upper layers are ignored. */
+    public int susMaxY = 2;
+    public boolean clusterDeepOnly = true;
     public boolean tallColumns = true;
     public boolean susList = true;
     public boolean susScoreColors = true;
@@ -55,7 +58,11 @@ public class ChunkFinderConfig {
     public boolean susTracer = false;
     /** Draw boxes on the exact blocks that gave a chunk away, instead of flat chunk-sized slabs. */
     public boolean exactSpots = true;
+    public boolean joinCover = true;
     public boolean focusCards = true;
+    public boolean pharaohFont = true;
+    public boolean globalFont = true;
+    public boolean pharaohFontPoppins = false;
     public int susListCount = 5;
     public boolean detectLight = true;
     /** Underground lights needed in a chunk before it is flagged (1..20). */
@@ -148,6 +155,13 @@ public class ChunkFinderConfig {
     public boolean marketPerItem = false;
     public boolean marketPanel = true;
 
+    // ---------------- RTP Hunter ----------------
+    public boolean huntEnabled = false;
+    public boolean huntAlert = true;
+    public boolean huntBeams = true;
+    public int huntX = 4;
+    public int huntY = 90;
+
     // ---------------- Portal Calc ----------------
     public boolean portalEnabled = false;
     public boolean portalAuto = true;
@@ -172,16 +186,6 @@ public class ChunkFinderConfig {
     public boolean soundStorage = true;
     public boolean soundDig = true;
     public boolean soundMachines = true;
-
-    // ---------------- Cave Finder ----------------
-    public boolean caveEnabled = false;
-    public boolean caveDeep = true;
-    public boolean caveExact = true;
-    public int caveMin = 30;
-    public int caveRange = 8;
-    public boolean caveCaves = true;
-    public boolean caveRooms = true;
-    public boolean caveFill = true;
 
     // ---------------- Farm Finder ----------------
     public boolean farmEnabled = false;
@@ -334,6 +338,7 @@ public class ChunkFinderConfig {
         }
         lightColor = fixColor(lightColor, new int[]{255, 230, 80});
         susSensitivity = clampInt(susSensitivity, 1, 10);
+        susMaxY = clampInt(susMaxY, -60, 64);
         simulationDistance = clampInt(simulationDistance, 2, 32);
         scanInterval = clampInt(scanInterval, 5, 200);
         renderY = clampInt(renderY, -64, 320);
@@ -350,13 +355,13 @@ public class ChunkFinderConfig {
         playerLogLines = clampInt(playerLogLines, 2, 15);
         activityRedstoneMin = clampInt(activityRedstoneMin, 2, 60);
         farmMin = clampInt(farmMin, 3, 60);
-        caveMin = clampInt(caveMin, 8, 500);
         soundSeconds = clampInt(soundSeconds, 2, 30);
+        huntX = clampInt(huntX, 0, 3000);
+        huntY = clampInt(huntY, 0, 3000);
         portalX = clampInt(portalX, 0, 3000);
         portalY = clampInt(portalY, 0, 3000);
         if (portalSaved == null) portalSaved = new java.util.ArrayList<>();
         portalSaved.removeIf(p -> p == null || (p.dim != 0 && p.dim != 1));
-        caveRange = clampInt(caveRange, 2, 24);
         sweepRadius = clampInt(sweepRadius, 5, 24);
         sweepX = clampInt(sweepX, 0, 4000);
         sweepY = clampInt(sweepY, 0, 4000);

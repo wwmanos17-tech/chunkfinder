@@ -94,7 +94,7 @@ public class RegionMap {
                 ctx.fill(cx, cy, cx + cell - 1, cy + cell - 1, color(AREA[r].charAt(c)));
                 if (cell >= 20) {
                     String n = String.valueOf(NUM[r][c]);
-                    ctx.drawText(mc.textRenderer, Text.literal(n), cx + (cell - 1 - mc.textRenderer.getWidth(n)) / 2, cy + (cell - 8) / 2, 0xFFFFFFFF, true);
+                    ctx.drawText(mc.textRenderer, PFont.t(n), cx + (cell - 1 - PFont.w(mc, n)) / 2, cy + (cell - 8) / 2, 0xFFFFFFFF, true);
                 }
             }
         }
@@ -118,12 +118,12 @@ public class RegionMap {
         ctx.fill(dx - 1, dy - 1, dx + 2, dy + 2, 0xFFFF2222);
 
         int ty = my0 + mapSize + 3;
-        ctx.drawTextWithShadow(mc.textRenderer, Text.literal("X " + (int) px + "  Z " + (int) pz), x + 6, ty, 0xFFE6E6E6);
+        ctx.drawTextWithShadow(mc.textRenderer, PFont.t("X " + (int) px + "  Z " + (int) pz), x + 6, ty, 0xFFE6E6E6);
         if (inside) {
             char a = AREA[row].charAt(col);
-            ctx.drawTextWithShadow(mc.textRenderer, Text.literal("Region " + NUM[row][col] + " (" + name(a) + ")"), x + 6, ty + 10, color(a));
+            ctx.drawTextWithShadow(mc.textRenderer, PFont.t("Region " + NUM[row][col] + " (" + name(a) + ")"), x + 6, ty + 10, color(a));
         } else {
-            ctx.drawTextWithShadow(mc.textRenderer, Text.literal("Outside the map"), x + 6, ty + 10, 0xFF8A8A96);
+            ctx.drawTextWithShadow(mc.textRenderer, PFont.t("Outside the map"), x + 6, ty + 10, 0xFF8A8A96);
         }
     }
 }

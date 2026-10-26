@@ -115,14 +115,14 @@ public final class ReachTest {
         rows.add(pl.toString());
         rows.add(ot.toString());
         int w = 0;
-        for (String s : rows) w = Math.max(w, mc.textRenderer.getWidth(s));
+        for (String s : rows) w = Math.max(w, PFont.w(mc, s));
         w += 12;
         int h = 6 + rows.size() * 10 + 4;
         int x = Math.max(0, Math.min(cfg.reachX, mc.getWindow().getScaledWidth() - w));
         int y = Math.max(0, Math.min(cfg.reachY, mc.getWindow().getScaledHeight() - h));
         HudPanel.draw(ctx, x, y, w, h);
         for (int i = 0; i < rows.size(); i++) {
-            ctx.drawTextWithShadow(mc.textRenderer, Text.literal(rows.get(i)), x + 6, y + 4 + i * 10, i == 0 ? 0xFFF4ECD6 : 0xFFE8C170);
+            ctx.drawTextWithShadow(mc.textRenderer, PFont.t(rows.get(i)), x + 6, y + 4 + i * 10, i == 0 ? 0xFFF4ECD6 : 0xFFE8C170);
         }
     }
 }

@@ -163,9 +163,9 @@ public class StaffTracker {
         if (list.isEmpty()) list.add(new Staff("Drag me", null));
         int shown = Math.min(list.size(), 8);
         int rowH = 14;
-        int w = mc.textRenderer.getWidth("STAFF " + list.size());
-        for (int i = 0; i < shown; i++) w = Math.max(w, 18 + mc.textRenderer.getWidth(list.get(i).name()));
-        if (list.size() > shown) w = Math.max(w, mc.textRenderer.getWidth("+" + (list.size() - shown) + " more"));
+        int w = PFont.w(mc, "STAFF " + list.size());
+        for (int i = 0; i < shown; i++) w = Math.max(w, 18 + PFont.w(mc, list.get(i).name()));
+        if (list.size() > shown) w = Math.max(w, PFont.w(mc, "+" + (list.size() - shown) + " more"));
         w += 10;
 
         int h = 14 + shown * rowH + (list.size() > shown ? rowH : 0) + 2;
@@ -176,16 +176,16 @@ public class StaffTracker {
         BOUNDS[2] = w;
         BOUNDS[3] = h;
         HudPanel.draw(ctx, x, y, w, h);
-        ctx.drawTextWithShadow(mc.textRenderer, Text.literal("STAFF " + list.size()), x + 6, y + 3, 0xFF8A8A96);
+        ctx.drawTextWithShadow(mc.textRenderer, PFont.t("STAFF " + list.size()), x + 6, y + 3, 0xFF8A8A96);
         int ry = y + 14;
         for (int i = 0; i < shown; i++) {
             Staff s = list.get(i);
             if (s.skin() != null) PlayerSkinDrawer.draw(ctx, s.skin(), x + 6, ry, 11);
-            ctx.drawTextWithShadow(mc.textRenderer, Text.literal(s.name()), x + 21, ry + 2, 0xFFE6E6E6);
+            ctx.drawTextWithShadow(mc.textRenderer, PFont.t(s.name()), x + 21, ry + 2, 0xFFE6E6E6);
             ry += rowH;
         }
         if (list.size() > shown) {
-            ctx.drawTextWithShadow(mc.textRenderer, Text.literal("+" + (list.size() - shown) + " more"), x + 6, ry, 0xFF8A8A96);
+            ctx.drawTextWithShadow(mc.textRenderer, PFont.t("+" + (list.size() - shown) + " more"), x + 6, ry, 0xFF8A8A96);
         }
     }
 }

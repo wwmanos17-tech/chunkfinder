@@ -24,9 +24,9 @@ public final class FpsBar {
         }
         SessionTimer.segments(parts, cols);
 
-        int sep = mc.textRenderer.getWidth(" | ");
+        int sep = PFont.w(mc, " | ");
         int textW = 0;
-        for (int i = 0; i < parts.size(); i++) textW += mc.textRenderer.getWidth(parts.get(i)) + (i > 0 ? sep : 0);
+        for (int i = 0; i < parts.size(); i++) textW += PFont.w(mc, parts.get(i)) + (i > 0 ? sep : 0);
         int w = 4 + 16 + 5 + textW + 6;
         int h = 20;
         int x = Math.max(0, Math.min(cfg.fpsX, mc.getWindow().getScaledWidth() - w));
@@ -48,11 +48,11 @@ public final class FpsBar {
         int tx = x + 27;
         for (int i = 0; i < parts.size(); i++) {
             if (i > 0) {
-                ctx.drawTextWithShadow(mc.textRenderer, Text.literal(" | "), tx, y + 6, 0xFFE0A526);
+                ctx.drawTextWithShadow(mc.textRenderer, PFont.t(" | "), tx, y + 6, 0xFFE0A526);
                 tx += sep;
             }
-            ctx.drawTextWithShadow(mc.textRenderer, Text.literal(parts.get(i)), tx, y + 6, cols.get(i));
-            tx += mc.textRenderer.getWidth(parts.get(i));
+            ctx.drawTextWithShadow(mc.textRenderer, PFont.t(parts.get(i)), tx, y + 6, cols.get(i));
+            tx += PFont.w(mc, parts.get(i));
         }
     }
 }

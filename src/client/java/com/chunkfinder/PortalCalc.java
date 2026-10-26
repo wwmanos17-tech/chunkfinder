@@ -47,6 +47,9 @@ public final class PortalCalc {
 
     public static void clearTarget() { targetOn = false; }
 
+    /** Points the guide at an Overworld X, Z (used by RTP Hunter). */
+    public static void guideTo(int owX, int owZ) { setTarget(owX, owZ); }
+
     private static void setTarget(int owX, int owZ) {
         targetOwX = owX;
         targetOwZ = owZ;
@@ -320,7 +323,7 @@ public final class PortalCalc {
         }
 
         int w = 0;
-        for (String s : lines) w = Math.max(w, mc.textRenderer.getWidth(s));
+        for (String s : lines) w = Math.max(w, PFont.w(mc, s));
         w += 14;
         int h = 6 + lines.size() * 10 + 4;
         int x = Math.max(0, Math.min(cfg.portalX, mc.getWindow().getScaledWidth() - w));
@@ -328,7 +331,7 @@ public final class PortalCalc {
         BOUNDS[0] = x; BOUNDS[1] = y; BOUNDS[2] = w; BOUNDS[3] = h;
         HudPanel.draw(ctx, x, y, w, h);
         for (int i = 0; i < lines.size(); i++) {
-            ctx.drawTextWithShadow(mc.textRenderer, Text.literal(lines.get(i)), x + 7, y + 4 + i * 10, cols.get(i));
+            ctx.drawTextWithShadow(mc.textRenderer, PFont.t(lines.get(i)), x + 7, y + 4 + i * 10, cols.get(i));
         }
     }
 

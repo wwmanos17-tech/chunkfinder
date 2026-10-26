@@ -78,11 +78,20 @@ public class SusScanner {
             || s.isOf(Blocks.NOTE_BLOCK) || s.isOf(Blocks.SCAFFOLDING) || s.isOf(Blocks.WHITE_WOOL);
     }
 
+    /** Blocks that strongholds, dungeons and similar natural places also contain, so they count for less than a piston or glass. */
+    private static boolean isWeakBlock(BlockState s) {
+        return s.isOf(Blocks.OAK_DOOR) || s.isOf(Blocks.IRON_DOOR) || s.isOf(Blocks.COBBLESTONE_STAIRS)
+            || s.isOf(Blocks.COBBLESTONE_SLAB) || s.isOf(Blocks.SMOOTH_STONE) || s.isOf(Blocks.CRAFTING_TABLE)
+            || s.isOf(Blocks.FURNACE);
+    }
+
     /** Blocks that only exist in natural underground structures (ancient cities, trial chambers, strongholds). */
     private static boolean isNaturalMarker(BlockState s) {
         return s.isOf(Blocks.SCULK_SHRIEKER) || s.isOf(Blocks.SCULK_CATALYST) || s.isOf(Blocks.REINFORCED_DEEPSLATE)
             || s.isOf(Blocks.TRIAL_SPAWNER) || s.isOf(Blocks.VAULT) || s.isOf(Blocks.END_PORTAL_FRAME)
-            || s.isOf(Blocks.CHISELED_TUFF_BRICKS) || s.isOf(Blocks.HEAVY_CORE);
+            || s.isOf(Blocks.CHISELED_TUFF_BRICKS) || s.isOf(Blocks.HEAVY_CORE)
+            || s.isOf(Blocks.INFESTED_STONE_BRICKS) || s.isOf(Blocks.INFESTED_CRACKED_STONE_BRICKS)
+            || s.isOf(Blocks.INFESTED_MOSSY_STONE_BRICKS) || s.isOf(Blocks.INFESTED_CHISELED_STONE_BRICKS);
     }
 
     public static void tick(MinecraftClient mc) {
@@ -218,6 +227,7 @@ public class SusScanner {
 
     private static int score(MinecraftClient mc, WorldChunk chunk) {
         int score = 0;
+        final int maxY = ChunkFinderConfig.INSTANCE.susMaxY;
         java.util.List<Integer> ys = new java.util.ArrayList<>();
         java.util.List<Long> hi = new java.util.ArrayList<>();
         java.util.List<Long> lo = new java.util.ArrayList<>();
@@ -225,29 +235,40 @@ public class SusScanner {
 
         // natural structures (ancient city, trial chamber, stronghold portal room) look like bases, so they get discounted
         boolean natural = false;
-        for (ChunkSection ns : chunk.getSectionArray()) {
+        boolean mossyBricks = false, plainBricks = false;
+        ChunkSection[] allSections = chunk.getSectionArray();
+        for (int ni = 0; ni < allSections.length; ni++) {
+            ChunkSection ns = allSections[ni];
             if (ns == null || ns.isEmpty()) continue;
             if (ns.hasAny(SusScanner::isNaturalMarker)) { natural = true; break; }
+            if (chunk.getBottomSectionCoord() + ni <= 2) {
+                // strongholds are built from stone bricks mixed with mossy / cracked ones; players rarely mix them like that
+                if (ns.hasAny(b -> b.isOf(Blocks.MOSSY_STONE_BRICKS) || b.isOf(Blocks.CRACKED_STONE_BRICKS))) mossyBricks = true;
+                if (ns.hasAny(b -> b.isOf(Blocks.STONE_BRICKS))) plainBricks = true;
+            }
         }
+        if (mossyBricks && plainBricks) natural = true;
+        int strong = 0, weak = 0;
 
-        // 1) blocks that do not belong in caves (only sections below about y 47)
+        // 1) blocks that do not belong in caves (only at or below the Sus Max Height setting, 2 by default)
         ChunkSection[] sections = chunk.getSectionArray();
         boolean found = false;
         for (int i = 0; i < sections.length; i++) {
             int sectionY = chunk.getBottomSectionCoord() + i;
-            if (sectionY > 2) break;
+            if (sectionY * 16 > maxY) break;
             ChunkSection s = sections[i];
             if (s == null || s.isEmpty()) continue;
             if (s.hasAny(SusScanner::isSusBlock)) {
-                found = true;
                 // note the height of the clues in this section
                 long sum = 0;
                 int n = 0;
                 for (int ly = 0; ly < 16; ly++) {
-                    if (sectionY * 16 + ly > 47) break;
+                    if (sectionY * 16 + ly > maxY) break;
                     for (int lx = 0; lx < 16; lx++) {
                         for (int lz = 0; lz < 16; lz++) {
-                            if (isSusBlock(s.getBlockState(lx, ly, lz))) {
+                            BlockState bs = s.getBlockState(lx, ly, lz);
+                            if (isSusBlock(bs)) {
+                                if (isWeakBlock(bs)) weak++; else strong++;
                                 sum += sectionY * 16 + ly;
                                 n++;
                                 if (lo.size() < 60) lo.add(BlockPos.asLong(csx + lx, sectionY * 16 + ly, csz + lz));
@@ -255,15 +276,21 @@ public class SusScanner {
                         }
                     }
                 }
-                if (n > 0) ys.add((int) (sum / n));
+                if (n > 0) { found = true; ys.add((int) (sum / n)); }
             }
         }
-        if (found) score += 4;
+        // a piston, glass, TNT and so on counts for more than doors or cobblestone steps, and one lone block counts for little
+        if (found) {
+            if (strong >= 3) score += 4;
+            else if (strong >= 1) score += 2;
+            else if (weak >= 6) score += 3;
+            else score += 1;
+        }
 
         // 1b) things players keep in bases (chests, furnaces, hoppers, beds ...) below about y 47
         int storage = 0;
         for (BlockEntity be : chunk.getBlockEntities().values()) {
-            if (be.getPos().getY() > 47) continue;
+            if (be.getPos().getY() > maxY) continue;
             if (be instanceof ChestBlockEntity || be instanceof BarrelBlockEntity || be instanceof ShulkerBoxBlockEntity
                 || be instanceof EnderChestBlockEntity || be instanceof AbstractFurnaceBlockEntity
                 || be instanceof HopperBlockEntity || be instanceof BedBlockEntity
@@ -285,7 +312,7 @@ public class SusScanner {
         folk.addAll(mc.world.getEntitiesByClass(VillagerEntity.class, area, e -> true));
         for (net.minecraft.entity.LivingEntity v : folk) {
             int top = mc.world.getTopY(Heightmap.Type.WORLD_SURFACE, v.getBlockX(), v.getBlockZ());
-            if (v.getY() < top - 6) {
+            if (v.getY() < top - 6 && v.getY() <= maxY) {
                 villagers++;
                 ys.add((int) v.getY());
                 if (hi.size() < 40) hi.add(BlockPos.asLong(v.getBlockX(), v.getBlockY(), v.getBlockZ()));
@@ -420,7 +447,7 @@ public class SusScanner {
         int shown = Math.min(list.size(), Math.max(1, cfg.susListCount));
         String[] lines = new String[shown];
         int[] colors = new int[shown];
-        int width = mc.textRenderer.getWidth("SUS CHUNKS " + list.size());
+        int width = PFont.w(mc, "SUS CHUNKS " + list.size());
         for (int i = 0; i < shown; i++) {
             ChunkPos p = list.get(i).getKey();
             int cx = p.getStartX() + 8;
@@ -429,7 +456,7 @@ public class SusScanner {
             lines[i] = dist + "m  X " + cx + "  Z " + cz;
             int score = list.get(i).getValue();
             colors[i] = score >= 10 ? 0xFFFF5555 : score >= 7 ? 0xFFFFAA33 : 0xFFE6E6E6;
-            width = Math.max(width, mc.textRenderer.getWidth(lines[i]));
+            width = Math.max(width, PFont.w(mc, lines[i]));
         }
         width += 12;
 
@@ -439,9 +466,9 @@ public class SusScanner {
         int y = mc.getWindow().getScaledHeight() / 2 - h / 2;
         ctx.fill(x, y, x + width, y + h, 0xB0101018);
         ctx.fill(x, y, x + 2, y + h, 0xFFFF5555);
-        ctx.drawTextWithShadow(mc.textRenderer, Text.literal("SUS CHUNKS " + list.size()), x + 6, y + 3, 0xFF8A8A96);
+        ctx.drawTextWithShadow(mc.textRenderer, PFont.t("SUS CHUNKS " + list.size()), x + 6, y + 3, 0xFF8A8A96);
         for (int i = 0; i < shown; i++) {
-            ctx.drawTextWithShadow(mc.textRenderer, Text.literal(lines[i]), x + 6, y + 14 + i * rowH, colors[i]);
+            ctx.drawTextWithShadow(mc.textRenderer, PFont.t(lines[i]), x + 6, y + 14 + i * rowH, colors[i]);
         }
     }
 }

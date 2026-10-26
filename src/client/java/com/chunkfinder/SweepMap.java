@@ -35,7 +35,7 @@ public final class SweepMap {
     }
 
     /** True when at least one deep section (below y 0) holds a mix of air and blocks, like real terrain. */
-    private static boolean realDeep(WorldChunk chunk) {
+    static boolean realDeep(WorldChunk chunk) {
         ChunkSection[] secs = chunk.getSectionArray();
         boolean any = false;
         for (int i = 0; i < secs.length; i++) {
@@ -130,8 +130,8 @@ public final class SweepMap {
         int ly = y + side + 12;
         for (int i = 0; i < 4; i++) {
             ctx.fill(lx, ly + 1, lx + 5, ly + 6, cols[i]);
-            ctx.drawTextWithShadow(mc.textRenderer, Text.literal(names[i]), lx + 8, ly, 0xFFB8AD90);
-            lx += 8 + mc.textRenderer.getWidth(names[i]) + 6;
+            ctx.drawTextWithShadow(mc.textRenderer, PFont.t(names[i]), lx + 8, ly, 0xFFB8AD90);
+            lx += 8 + PFont.w(mc, names[i]) + 6;
         }
     }
 }

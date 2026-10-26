@@ -7,7 +7,9 @@
     "HandledScreenAccessor",
     "ClientPlayNetworkHandlerMixin",
     "MouseMixin",
-    "TextVisitFactoryMixin"
+    "TextVisitFactoryMixin",
+    "TextRendererMixin",
+    "ScreenCoverMixin"
   ],
   "injectors": {
     "defaultRequire": 0

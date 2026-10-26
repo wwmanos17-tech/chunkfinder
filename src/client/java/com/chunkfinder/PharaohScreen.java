@@ -25,7 +25,7 @@ public class PharaohScreen extends Screen {
 
     /** Smooth font (Poppins) so the menu text isn't blocky. */
     private static net.minecraft.text.MutableText ui(String s) {
-        return Text.literal(s).styled(st -> st.withFont(UI_FONT));
+        return PFont.t(s);
     }
 
     private int uw(String s) {
@@ -309,7 +309,7 @@ public class PharaohScreen extends Screen {
         if (!PANELS.isEmpty()) return;
         ChunkFinderConfig c = ChunkFinderConfig.INSTANCE;
 
-        PANELS.add(panel("Visuals", 0xFFE0A526,
+        PANELS.add(panel("Finders", 0xFFE0A526,
             module("Chunk Finder", () -> c.enabled, v -> c.enabled = v,
                 keybind(ChunkFinderClient::toggleKey),
                 slider("Sensitivity", 1, 10, "", () -> c.sensitivity, v -> c.sensitivity = v),
@@ -321,6 +321,7 @@ public class PharaohScreen extends Screen {
                 toggle("Light Finder", () -> c.detectLight, v -> c.detectLight = v),
                 slider("Min Lights", 1, 20, "", () -> c.lightMin, v -> c.lightMin = v),
                 slider("Sus Sensitivity", 1, 10, "", () -> c.susSensitivity, v -> c.susSensitivity = v),
+                slider("Sus Max Height (only look at or below)", -60, 64, "", () -> c.susMaxY, v -> c.susMaxY = v),
                 toggle("Tall Columns", () -> c.tallColumns, v -> c.tallColumns = v),
                 toggle("Sus Chunk List", () -> c.susList, v -> c.susList = v),
                 toggle("Colour By Strength", () -> c.susScoreColors, v -> c.susScoreColors = v),
@@ -330,62 +331,30 @@ public class PharaohScreen extends Screen {
                 slider("List Length", 1, 12, "", () -> c.susListCount, v -> c.susListCount = v),
                 toggle("Chat Alerts", () -> c.notify, v -> c.notify = v),
                 slider("Render Height", -64, 320, "", () -> c.renderY, v -> c.renderY = v)),
-            module("Chunk Colors", () -> true, v -> { }, chunkColorSettings(c)),
-            module("Region Map", () -> c.regionMapEnabled, v -> c.regionMapEnabled = v,
-                slider("Map Size", 6, 30, "", () -> c.regionMapCell, v -> c.regionMapCell = v)),
-            module("FPS Counter", () -> c.fpsEnabled, v -> c.fpsEnabled = v),
-            module("Player ESP", () -> c.playerEspEnabled, v -> c.playerEspEnabled = v,
-                slider("Range", 16, 1024, "m", () -> c.playerEspRange, v -> c.playerEspRange = v),
-                toggle("Names", () -> c.playerEspNames, v -> c.playerEspNames = v),
-                toggle("Distance", () -> c.playerEspDistance, v -> c.playerEspDistance = v),
-                toggle("Filled", () -> c.playerEspFill, v -> c.playerEspFill = v),
-                toggle("Tracers", () -> c.playerEspTracers, v -> c.playerEspTracers = v),
-                toggle("Self In Freecam", () -> c.playerEspSelfInFreecam, v -> c.playerEspSelfInFreecam = v)),
-            module("Session Timer", () -> c.timerEnabled, v -> c.timerEnabled = v,
-                keybind("Stopwatch Start / Stop Key", ChunkFinderClient::stopwatchKey),
-                keybind("Stopwatch Reset Key", ChunkFinderClient::stopwatchResetKey),
-                toggle("Time Online", () -> c.timerShowSession, v -> c.timerShowSession = v),
-                toggle("Stopwatch", () -> c.timerShowStopwatch, v -> c.timerShowStopwatch = v),
-                toggle("Computer Clock", () -> c.timerShowClock, v -> c.timerShowClock = v)),
-            module("Player Logger", () -> c.playerLogEnabled, v -> c.playerLogEnabled = v,
-                toggle("Show List", () -> c.playerLogShowList, v -> c.playerLogShowList = v),
-                slider("List Lines", 2, 15, "", () -> c.playerLogLines, v -> c.playerLogLines = v),
-                toggle("Chat: Player Came Into Range", () -> c.playerLogChatEnter, v -> c.playerLogChatEnter = v),
-                toggle("Chat: Player Left Range", () -> c.playerLogChatLeave, v -> c.playerLogChatLeave = v)),
-            module("Armor HUD", () -> c.armorEnabled, v -> c.armorEnabled = v,
-                slider("Size", 50, 250, "%", () -> c.armorScale, v -> c.armorScale = v),
-                toggle("Side By Side", () -> c.armorHorizontal, v -> c.armorHorizontal = v),
-                toggle("Durability Numbers (1850/2031)", () -> c.armorNumber, v -> c.armorNumber = v),
-                toggle("Durability Percent", () -> c.armorText, v -> c.armorText = v),
-                toggle("Durability Bar", () -> c.armorBar, v -> c.armorBar = v),
-                toggle("Show Hand Items", () -> c.armorHands, v -> c.armorHands = v),
-                toggle("Show Empty Slots", () -> c.armorShowEmpty, v -> c.armorShowEmpty = v),
-                toggle("Background", () -> c.armorBackground, v -> c.armorBackground = v)),
-            module("Activity Detector", () -> c.activityEnabled, v -> c.activityEnabled = v,
-                slider("Redstone Parts To Flag", 2, 60, "", () -> c.activityRedstoneMin, v -> c.activityRedstoneMin = v),
-                toggle("Redstone Changes", () -> c.activityRedstone, v -> c.activityRedstone = v),
-                toggle("Chest Changes", () -> c.activityStorage, v -> c.activityStorage = v),
-                toggle("Show Redstone Chunks", () -> c.activityStatic, v -> c.activityStatic = v),
-                toggle("Labels", () -> c.activityLabels, v -> c.activityLabels = v),
-                toggle("Chat Alerts", () -> c.activityChat, v -> c.activityChat = v)),
-            module("Reach Test", () -> c.reachEnabled, v -> c.reachEnabled = v,
-                slider("Panel X", 0, 600, "", () -> c.reachX, v -> c.reachX = v),
-                slider("Panel Y", 0, 400, "", () -> c.reachY, v -> c.reachY = v)),
-            module("Market Helper", () -> c.marketEnabled, v -> c.marketEnabled = v,
-                slider("Min Discount", 5, 95, "%", () -> c.marketMinPercent, v -> c.marketMinPercent = v),
-                slider("Min Total Profit", 0, 100000, "", () -> c.marketMinProfit, v -> c.marketMinProfit = v),
-                slider("Sale Fee", 0, 30, "%", () -> c.marketFee, v -> c.marketFee = v),
-                toggle("Listed Price Is Per Item", () -> c.marketPerItem, v -> c.marketPerItem = v),
-                toggle("Best Flips Panel", () -> c.marketPanel, v -> c.marketPanel = v),
-                toggle("Forget Learned Prices", () -> false, v -> { if (v) MarketHelper.reset(); })),
-            module("Portal Calc", () -> c.portalEnabled, v -> c.portalEnabled = v,
-                toggle("Learn Portals When I Walk Through", () -> c.portalAuto, v -> c.portalAuto = v),
-                toggle("Show Link Zones In World", () -> c.portalMarks, v -> c.portalMarks = v),
-                toggle("Also Convert Where I Look", () -> c.portalLook, v -> c.portalLook = v),
-                keybind("Save Portal Here Key", ChunkFinderClient::portalSaveKey),
-                keybind("Remove Nearest Portal Key", ChunkFinderClient::portalDeleteKey),
-                toggle("Clear Typed Target (/pgoto)", () -> false, v -> { if (v) PortalCalc.clearTarget(); }),
-                toggle("Forget All Portals On This Server", () -> false, v -> { if (v) PortalCalc.clearServer(); })),
+            module("Cluster ESP", () -> c.clusterEnabled, v -> c.clusterEnabled = v,
+                slider("Sensitivity (low = more)", 3, 20, "", () -> c.clusterSensitivity, v -> c.clusterSensitivity = v),
+                slider("Join Distance", 10, 64, " blocks", () -> c.clusterJoin, v -> c.clusterJoin = v),
+                toggle("Filled", () -> c.clusterFill, v -> c.clusterFill = v),
+                toggle("Labels", () -> c.clusterLabels, v -> c.clusterLabels = v),
+                toggle("Mark Each Part", () -> c.clusterParts, v -> c.clusterParts = v),
+                toggle("Tracer To Strongest", () -> c.clusterTracer, v -> c.clusterTracer = v),
+                toggle("Count Villagers", () -> c.clusterUseVillagers, v -> c.clusterUseVillagers = v),
+                toggle("Count Flagged Chunks", () -> c.clusterUseSus, v -> c.clusterUseSus = v),
+                toggle("Only Below Sus Max Height", () -> c.clusterDeepOnly, v -> c.clusterDeepOnly = v),
+                slider("Scan Range", 16, 2048, "m", () -> c.chestEspRange, v -> c.chestEspRange = v),
+                toggle("Count Chests", () -> c.espChest, v -> c.espChest = v),
+                toggle("Count Trapped Chests", () -> c.espTrapped, v -> c.espTrapped = v),
+                toggle("Count Barrels", () -> c.espBarrel, v -> c.espBarrel = v),
+                toggle("Count Ender Chests", () -> c.espEnder, v -> c.espEnder = v),
+                toggle("Count Shulkers", () -> c.espShulker, v -> c.espShulker = v),
+                toggle("Count Spawners", () -> c.espSpawner, v -> c.espSpawner = v),
+                toggle("Count Beacons", () -> c.espBeacon, v -> c.espBeacon = v),
+                toggle("Count Beds", () -> c.espBed, v -> c.espBed = v),
+                toggle("Count Chest Minecarts", () -> c.espMinecart, v -> c.espMinecart = v),
+                toggle("Chat Alert", () -> c.clusterAlert, v -> c.clusterAlert = v),
+                toggle("Alert: Spawners", () -> c.alertSpawners, v -> c.alertSpawners = v),
+                toggle("Alert: Stashes", () -> c.alertStash, v -> c.alertStash = v),
+                toggle("Alert: Bases", () -> c.alertBases, v -> c.alertBases = v)),
             module("Sound Radar", () -> c.soundEnabled, v -> c.soundEnabled = v,
                 slider("Show For", 2, 30, " s", () -> c.soundSeconds, v -> c.soundSeconds = v),
                 toggle("Mark Block In World", () -> c.soundMarks, v -> c.soundMarks = v),
@@ -393,23 +362,32 @@ public class PharaohScreen extends Screen {
                 toggle("Chests And Barrels", () -> c.soundStorage, v -> c.soundStorage = v),
                 toggle("Digging", () -> c.soundDig, v -> c.soundDig = v),
                 toggle("Pistons, Furnaces, Hoppers", () -> c.soundMachines, v -> c.soundMachines = v)),
-            module("Cave Finder", () -> c.caveEnabled, v -> c.caveEnabled = v,
-                toggle("Exact Outline (see inside)", () -> c.caveExact, v -> c.caveExact = v),
-                toggle("Deep Mode (below y0, every second)", () -> c.caveDeep, v -> c.caveDeep = v),
-                slider("Smallest Hollow", 8, 500, " blocks", () -> c.caveMin, v -> c.caveMin = v),
-                slider("Range (chunks)", 2, 24, "", () -> c.caveRange, v -> c.caveRange = v),
-                toggle("Show Caves (yellow)", () -> c.caveCaves, v -> c.caveCaves = v),
-                toggle("Show Rooms And Bases (orange)", () -> c.caveRooms, v -> c.caveRooms = v),
-                toggle("Filled Caves", () -> c.caveFill, v -> c.caveFill = v)),
             module("Farm Finder", () -> c.farmEnabled, v -> c.farmEnabled = v,
                 slider("Entities To Flag", 3, 60, "", () -> c.farmMin, v -> c.farmMin = v),
                 toggle("Underground Only", () -> c.farmUnderground, v -> c.farmUnderground = v),
                 toggle("Labels", () -> c.farmLabels, v -> c.farmLabels = v),
                 toggle("Tracers", () -> c.farmTracer, v -> c.farmTracer = v),
                 toggle("Chat Alerts", () -> c.farmChat, v -> c.farmChat = v)),
-            module("Sweep Map", () -> c.sweepEnabled, v -> c.sweepEnabled = v,
-                slider("Map Radius (chunks)", 5, 24, "", () -> c.sweepRadius, v -> c.sweepRadius = v),
-                toggle("Show Sus And Farms", () -> c.sweepFlags, v -> c.sweepFlags = v)),
+            module("Activity Detector", () -> c.activityEnabled, v -> c.activityEnabled = v,
+                slider("Redstone Parts To Flag", 2, 60, "", () -> c.activityRedstoneMin, v -> c.activityRedstoneMin = v),
+                toggle("Redstone Changes", () -> c.activityRedstone, v -> c.activityRedstone = v),
+                toggle("Chest Changes", () -> c.activityStorage, v -> c.activityStorage = v),
+                toggle("Show Redstone Chunks", () -> c.activityStatic, v -> c.activityStatic = v),
+                toggle("Labels", () -> c.activityLabels, v -> c.activityLabels = v),
+                toggle("Chat Alerts", () -> c.activityChat, v -> c.activityChat = v)),
+            module("RTP Hunter", () -> c.huntEnabled, v -> c.huntEnabled = v,
+                toggle("Chat Alert On New Find", () -> c.huntAlert, v -> c.huntAlert = v),
+                toggle("Beam Above Every Find", () -> c.huntBeams, v -> c.huntBeams = v),
+                keybind("Guide To Best Find Key", ChunkFinderClient::huntGoKey),
+                toggle("Clear Find List", () -> false, v -> { if (v) RtpHunter.clearLog(); }))));
+        PANELS.add(panel("ESP", 0xFFF0C14B,
+            module("Player ESP", () -> c.playerEspEnabled, v -> c.playerEspEnabled = v,
+                slider("Range", 16, 1024, "m", () -> c.playerEspRange, v -> c.playerEspRange = v),
+                toggle("Names", () -> c.playerEspNames, v -> c.playerEspNames = v),
+                toggle("Distance", () -> c.playerEspDistance, v -> c.playerEspDistance = v),
+                toggle("Filled", () -> c.playerEspFill, v -> c.playerEspFill = v),
+                toggle("Tracers", () -> c.playerEspTracers, v -> c.playerEspTracers = v),
+                toggle("Self In Freecam", () -> c.playerEspSelfInFreecam, v -> c.playerEspSelfInFreecam = v)),
             module("Entity ESP", () -> c.entityEspEnabled, v -> c.entityEspEnabled = v,
                 slider("Range", 8, 512, "m", () -> c.entityEspRange, v -> c.entityEspRange = v),
                 toggle("Item Frames (With Items)", () -> c.entityEspFrames, v -> c.entityEspFrames = v),
@@ -425,29 +403,6 @@ public class PharaohScreen extends Screen {
                 toggle("Labels", () -> c.itemEspLabels, v -> c.itemEspLabels = v),
                 toggle("Tracers (Valuable)", () -> c.itemEspTracers, v -> c.itemEspTracers = v),
                 toggle("Chat Alert: Rare Items", () -> c.itemEspAlert, v -> c.itemEspAlert = v)),
-            module("Cluster ESP", () -> c.clusterEnabled, v -> c.clusterEnabled = v,
-                slider("Sensitivity (low = more)", 3, 20, "", () -> c.clusterSensitivity, v -> c.clusterSensitivity = v),
-                slider("Join Distance", 10, 64, " blocks", () -> c.clusterJoin, v -> c.clusterJoin = v),
-                toggle("Filled", () -> c.clusterFill, v -> c.clusterFill = v),
-                toggle("Labels", () -> c.clusterLabels, v -> c.clusterLabels = v),
-                toggle("Mark Each Part", () -> c.clusterParts, v -> c.clusterParts = v),
-                toggle("Tracer To Strongest", () -> c.clusterTracer, v -> c.clusterTracer = v),
-                toggle("Count Villagers", () -> c.clusterUseVillagers, v -> c.clusterUseVillagers = v),
-                toggle("Count Flagged Chunks", () -> c.clusterUseSus, v -> c.clusterUseSus = v),
-                slider("Scan Range", 16, 2048, "m", () -> c.chestEspRange, v -> c.chestEspRange = v),
-                toggle("Count Chests", () -> c.espChest, v -> c.espChest = v),
-                toggle("Count Trapped Chests", () -> c.espTrapped, v -> c.espTrapped = v),
-                toggle("Count Barrels", () -> c.espBarrel, v -> c.espBarrel = v),
-                toggle("Count Ender Chests", () -> c.espEnder, v -> c.espEnder = v),
-                toggle("Count Shulkers", () -> c.espShulker, v -> c.espShulker = v),
-                toggle("Count Spawners", () -> c.espSpawner, v -> c.espSpawner = v),
-                toggle("Count Beacons", () -> c.espBeacon, v -> c.espBeacon = v),
-                toggle("Count Beds", () -> c.espBed, v -> c.espBed = v),
-                toggle("Count Chest Minecarts", () -> c.espMinecart, v -> c.espMinecart = v),
-                toggle("Chat Alert", () -> c.clusterAlert, v -> c.clusterAlert = v),
-                toggle("Alert: Spawners", () -> c.alertSpawners, v -> c.alertSpawners = v),
-                toggle("Alert: Stashes", () -> c.alertStash, v -> c.alertStash = v),
-                toggle("Alert: Bases", () -> c.alertBases, v -> c.alertBases = v)),
             module("Ore ESP", () -> c.oreEspEnabled, v -> c.oreEspEnabled = v,
                 slider("Range (chunks)", 1, 12, "", () -> c.oreEspRange, v -> c.oreEspRange = v),
                 toggle("Diamond", () -> c.oreDiamond, v -> c.oreDiamond = v),
@@ -464,13 +419,38 @@ public class PharaohScreen extends Screen {
                 toggle("Chat Alert: Rare Finds", () -> c.alertRareOres, v -> c.alertRareOres = v),
                 toggle("Filled", () -> c.oreFill, v -> c.oreFill = v),
                 toggle("Tracers", () -> c.oreTracers, v -> c.oreTracers = v))));
-
-        PANELS.add(panel("Movement", 0xFFF0C14B,
+        PANELS.add(panel("Navigation", 0xFFD9822B,
+            module("Portal Calc", () -> c.portalEnabled, v -> c.portalEnabled = v,
+                toggle("Learn Portals When I Walk Through", () -> c.portalAuto, v -> c.portalAuto = v),
+                toggle("Show Link Zones In World", () -> c.portalMarks, v -> c.portalMarks = v),
+                toggle("Also Convert Where I Look", () -> c.portalLook, v -> c.portalLook = v),
+                keybind("Save Portal Here Key", ChunkFinderClient::portalSaveKey),
+                keybind("Remove Nearest Portal Key", ChunkFinderClient::portalDeleteKey),
+                toggle("Clear Typed Target (/pgoto)", () -> false, v -> { if (v) PortalCalc.clearTarget(); }),
+                toggle("Forget All Portals On This Server", () -> false, v -> { if (v) PortalCalc.clearServer(); })),
             module("Freecam", () -> c.freecamEnabled, v -> c.freecamEnabled = v,
                 keybind(ChunkFinderClient::freecamKey),
-                slider("Speed", 1, 60, "", () -> c.freecamSpeed, v -> c.freecamSpeed = v))));
-
-        PANELS.add(panel("Alerts", 0xFFD9822B,
+                slider("Speed", 1, 60, "", () -> c.freecamSpeed, v -> c.freecamSpeed = v)),
+            module("Region Map", () -> c.regionMapEnabled, v -> c.regionMapEnabled = v,
+                slider("Map Size", 6, 30, "", () -> c.regionMapCell, v -> c.regionMapCell = v)),
+            module("Sweep Map", () -> c.sweepEnabled, v -> c.sweepEnabled = v,
+                slider("Map Radius (chunks)", 5, 24, "", () -> c.sweepRadius, v -> c.sweepRadius = v),
+                toggle("Show Sus And Farms", () -> c.sweepFlags, v -> c.sweepFlags = v))));
+        PANELS.add(panel("Players", 0xFFE0A526,
+            module("Player Logger", () -> c.playerLogEnabled, v -> c.playerLogEnabled = v,
+                toggle("Show List", () -> c.playerLogShowList, v -> c.playerLogShowList = v),
+                slider("List Lines", 2, 15, "", () -> c.playerLogLines, v -> c.playerLogLines = v),
+                toggle("Chat: Player Came Into Range", () -> c.playerLogChatEnter, v -> c.playerLogChatEnter = v),
+                toggle("Chat: Player Left Range", () -> c.playerLogChatLeave, v -> c.playerLogChatLeave = v)),
+            module("Staff Tracker", () -> c.staffEnabled, v -> c.staffEnabled = v,
+                toggle("Show List", () -> c.staffShowList, v -> c.staffShowList = v),
+                slider("Staff Rank No. (max)", 0, 20, "", () -> c.staffMaxRank, v -> c.staffMaxRank = v),
+                toggle("Join / Leave Alerts", () -> c.staffAlerts, v -> c.staffAlerts = v),
+                toggle("Print Tab Tags (click)", () -> false, v -> {
+                    net.minecraft.client.MinecraftClient mc = net.minecraft.client.MinecraftClient.getInstance();
+                    mc.setScreen(null);
+                    StaffTracker.printTags(mc);
+                })),
             module("Spectator Alert", () -> c.spectatorEnabled, v -> c.spectatorEnabled = v,
                 slider("Range", 4, 128, "m", () -> c.spectatorRange, v -> c.spectatorRange = v),
                 slider("Head Size", 10, 100, "%", () -> c.spectatorHeadPercent, v -> c.spectatorHeadPercent = v),
@@ -484,24 +464,47 @@ public class PharaohScreen extends Screen {
                     mc.setScreen(null);
                     SpectatorAlert.test(mc);
                 })),
-            module("Staff Tracker", () -> c.staffEnabled, v -> c.staffEnabled = v,
-                toggle("Show List", () -> c.staffShowList, v -> c.staffShowList = v),
-                slider("Staff Rank No. (max)", 0, 20, "", () -> c.staffMaxRank, v -> c.staffMaxRank = v),
-                toggle("Join / Leave Alerts", () -> c.staffAlerts, v -> c.staffAlerts = v),
-                toggle("Print Tab Tags (click)", () -> false, v -> {
-                    net.minecraft.client.MinecraftClient mc = net.minecraft.client.MinecraftClient.getInstance();
-                    mc.setScreen(null);
-                    StaffTracker.printTags(mc);
-                }))));
-
+            module("Reach Test", () -> c.reachEnabled, v -> c.reachEnabled = v,
+                slider("Panel X", 0, 600, "", () -> c.reachX, v -> c.reachX = v),
+                slider("Panel Y", 0, 400, "", () -> c.reachY, v -> c.reachY = v))));
+        PANELS.add(panel("HUD", 0xFFF0C14B,
+            module("FPS Counter", () -> c.fpsEnabled, v -> c.fpsEnabled = v),
+            module("Session Timer", () -> c.timerEnabled, v -> c.timerEnabled = v,
+                keybind("Stopwatch Start / Stop Key", ChunkFinderClient::stopwatchKey),
+                keybind("Stopwatch Reset Key", ChunkFinderClient::stopwatchResetKey),
+                toggle("Time Online", () -> c.timerShowSession, v -> c.timerShowSession = v),
+                toggle("Stopwatch", () -> c.timerShowStopwatch, v -> c.timerShowStopwatch = v),
+                toggle("Computer Clock", () -> c.timerShowClock, v -> c.timerShowClock = v)),
+            module("Armor HUD", () -> c.armorEnabled, v -> c.armorEnabled = v,
+                slider("Size", 50, 250, "%", () -> c.armorScale, v -> c.armorScale = v),
+                toggle("Side By Side", () -> c.armorHorizontal, v -> c.armorHorizontal = v),
+                toggle("Durability Numbers (1850/2031)", () -> c.armorNumber, v -> c.armorNumber = v),
+                toggle("Durability Percent", () -> c.armorText, v -> c.armorText = v),
+                toggle("Durability Bar", () -> c.armorBar, v -> c.armorBar = v),
+                toggle("Show Hand Items", () -> c.armorHands, v -> c.armorHands = v),
+                toggle("Show Empty Slots", () -> c.armorShowEmpty, v -> c.armorShowEmpty = v),
+                toggle("Background", () -> c.armorBackground, v -> c.armorBackground = v))));
+        PANELS.add(panel("Utility", 0xFFD9822B,
+            module("Market Helper", () -> c.marketEnabled, v -> c.marketEnabled = v,
+                slider("Min Discount", 5, 95, "%", () -> c.marketMinPercent, v -> c.marketMinPercent = v),
+                slider("Min Total Profit", 0, 100000, "", () -> c.marketMinProfit, v -> c.marketMinProfit = v),
+                slider("Sale Fee", 0, 30, "%", () -> c.marketFee, v -> c.marketFee = v),
+                toggle("Listed Price Is Per Item", () -> c.marketPerItem, v -> c.marketPerItem = v),
+                toggle("Best Flips Panel", () -> c.marketPanel, v -> c.marketPanel = v),
+                toggle("Forget Learned Prices", () -> false, v -> { if (v) MarketHelper.reset(); })),
+            module("Name Protector", () -> c.nameProtect, v -> c.nameProtect = v)));
         PANELS.add(panel("Client", 0xFFE0A526,
+            module("Chunk Colors", () -> true, v -> { }, chunkColorSettings(c)),
             module("Menu", () -> true, v -> { },
                 keybind("Menu Key", ChunkFinderClient::menuKey),
                 slider("Menu Size (applies on release)", 60, 200, "%", () -> c.menuScale, v -> c.menuScale = v),
                 toggle("Menu Sounds", () -> c.menuSounds, v -> c.menuSounds = v),
+                toggle("Pharaoh Font (Liberation Sans)", () -> c.pharaohFont, v -> c.pharaohFont = v),
+                toggle("Pharaoh Font In All Menus And Chat", () -> c.globalFont, v -> c.globalFont = v),
+                toggle("Use Poppins Instead", () -> c.pharaohFontPoppins, v -> c.pharaohFontPoppins = v),
+                toggle("Desert Cover On Join And Leave Screens", () -> c.joinCover, v -> c.joinCover = v),
                 toggle("Focus Cards (one info card at a time)", () -> c.focusCards, v -> c.focusCards = v),
                 slider("Sound Volume", 0, 100, "%", () -> c.menuSoundVolume, v -> c.menuSoundVolume = v)),
-            module("Name Protector", () -> c.nameProtect, v -> c.nameProtect = v),
             module("Tool List", () -> c.showModuleList, v -> c.showModuleList = v)));
     }
 
@@ -694,9 +697,12 @@ public class PharaohScreen extends Screen {
         List<Panel> cats = categories();
         if (category == 0 || category - 1 >= cats.size()) return "Everything Pharaoh can do.";
         return switch (cats.get(category - 1).title) {
-            case "Visuals" -> "A clearer view of your world.";
-            case "Movement" -> "Move and look your way.";
-            case "Alerts" -> "Know who is around you.";
+            case "Finders" -> "Find bases, caves and activity.";
+            case "ESP" -> "See things through walls.";
+            case "Navigation" -> "Find your way around.";
+            case "Players" -> "Know who is around you.";
+            case "HUD" -> "Info on your screen.";
+            case "Utility" -> "Handy extras.";
             default -> "";
         };
     }
@@ -778,7 +784,7 @@ public class PharaohScreen extends Screen {
 
         // logo and name
         LogoRenderer.draw(c, wx + 10, wy + 4);
-        c.drawTextWithShadow(this.textRenderer, ui("PHARAOH").styled(st -> st.withFont(BOLD_FONT)), wx + 48, wy + 16, ACCENT);
+        c.drawTextWithShadow(this.textRenderer, ui("PHARAOH").styled(PFont::bold), wx + 48, wy + 16, ACCENT);
 
         // tabs: the highlight slides from one tab to the next
         {
@@ -864,7 +870,7 @@ public class PharaohScreen extends Screen {
         // content header
         int x0 = wx + SIDE + 12;
         int cw = ww - SIDE - 24;
-        c.drawTextWithShadow(this.textRenderer, ui(heading()).styled(st -> st.withFont(BOLD_FONT)), x0, wy + HEADER + 10, TEXT);
+        c.drawTextWithShadow(this.textRenderer, ui(heading()).styled(PFont::bold), x0, wy + HEADER + 10, TEXT);
         c.drawTextWithShadow(this.textRenderer, ui(subheading()), x0, wy + HEADER + 23, DIM);
 
         // search box
@@ -1000,7 +1006,7 @@ public class PharaohScreen extends Screen {
         round(c, x + 1, y + 1, x + w - 1, y + h - 1, mix(0xFF1D180E, 0xFF14110B, hvT), 6);
         if (swT > 0.3f) round(c, x, y + 12, x + 3, y + CARD - 12, col, 1);
 
-        c.drawTextWithShadow(this.textRenderer, ui(m.name).styled(st -> st.withFont(BOLD_FONT)), x + 14, y + 8, 0xFFFFFFFF);
+        c.drawTextWithShadow(this.textRenderer, ui(m.name).styled(PFont::bold), x + 14, y + 8, 0xFFFFFFFF);
 
         // key box
         Setting ks = keySetting(m);
@@ -1109,7 +1115,7 @@ public class PharaohScreen extends Screen {
             // the staff list can be dragged around while the menu is open (when it is outside the menu window)
             boolean inWindow = mx * d >= wx && mx * d < wx + ww && my * d >= wy && my * d < wy + wh;
             if (button == 0 && !inWindow) {
-                int[][] boxes = {StaffTracker.BOUNDS, RegionMap.BOUNDS, FpsBar.BOUNDS, PlayerLog.BOUNDS, ArmorHud.BOUNDS, SweepMap.BOUNDS, PortalCalc.BOUNDS};
+                int[][] boxes = {StaffTracker.BOUNDS, RegionMap.BOUNDS, FpsBar.BOUNDS, PlayerLog.BOUNDS, ArmorHud.BOUNDS, SweepMap.BOUNDS, PortalCalc.BOUNDS, RtpHunter.BOUNDS};
                 for (int i = 0; i < boxes.length; i++) {
                     int[] b = boxes[i];
                     if (b[2] > 0 && mx >= b[0] && mx < b[0] + b[2] && my >= b[1] && my < b[1] + b[3]) {
@@ -1256,9 +1262,12 @@ public class PharaohScreen extends Screen {
                 } else if (dragHud == 6) {
                     ChunkFinderConfig.INSTANCE.sweepX = (int) mx - hudOffX;
                     ChunkFinderConfig.INSTANCE.sweepY = (int) my - hudOffY;
-                } else {
+                } else if (dragHud == 7) {
                     ChunkFinderConfig.INSTANCE.portalX = (int) mx - hudOffX;
                     ChunkFinderConfig.INSTANCE.portalY = (int) my - hudOffY;
+                } else {
+                    ChunkFinderConfig.INSTANCE.huntX = (int) mx - hudOffX;
+                    ChunkFinderConfig.INSTANCE.huntY = (int) my - hudOffY;
                 }
                 return true;
             }

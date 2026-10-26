@@ -23,6 +23,7 @@ public class ChunkFinderClient implements ClientModInitializer {
     private static KeyBinding stopwatchResetKey;
     private static KeyBinding portalSaveKey;
     private static KeyBinding portalDeleteKey;
+    private static KeyBinding huntGoKey;
     private static ClientWorld lastWorld = null;
 
     public static KeyBinding menuKey() { return menuKey; }
@@ -32,6 +33,7 @@ public class ChunkFinderClient implements ClientModInitializer {
     public static KeyBinding stopwatchResetKey() { return stopwatchResetKey; }
     public static KeyBinding portalSaveKey() { return portalSaveKey; }
     public static KeyBinding portalDeleteKey() { return portalDeleteKey; }
+    public static KeyBinding huntGoKey() { return huntGoKey; }
 
     /** Gives a tool a new key, the same as changing it in Options > Controls. */
     public static void rebind(KeyBinding kb, int glfwKey) {
@@ -51,7 +53,6 @@ public class ChunkFinderClient implements ClientModInitializer {
         PlayerLog.clear();
         SessionTimer.clear();
         ActivityScanner.clear();
-        CaveFinder.clear();
         SoundRadar.clear();
         ReachTest.clear();
         LightFinder.clear();
@@ -83,6 +84,9 @@ public class ChunkFinderClient implements ClientModInitializer {
         portalDeleteKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
             "key.chunkfinder.portal_delete", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_UNKNOWN, "key.categories.chunkfinder"));
 
+        huntGoKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
+            "key.chunkfinder.hunt_go", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_UNKNOWN, "key.categories.chunkfinder"));
+
         // Freecam reads the keyboard and releases the real movement keys before the player's own tick.
         ClientTickEvents.START_CLIENT_TICK.register(Freecam::tick);
 
@@ -98,6 +102,9 @@ public class ChunkFinderClient implements ClientModInitializer {
             }
             while (portalDeleteKey.wasPressed()) {
                 if (ChunkFinderConfig.INSTANCE.portalEnabled) PortalCalc.deleteNearest(mc);
+            }
+            while (huntGoKey.wasPressed()) {
+                if (ChunkFinderConfig.INSTANCE.huntEnabled) RtpHunter.goToBest(mc);
             }
             while (freecamKey.wasPressed()) {
                 ChunkFinderConfig cfg = ChunkFinderConfig.INSTANCE;
@@ -161,8 +168,8 @@ public class ChunkFinderClient implements ClientModInitializer {
         safe("PlayerLog", () -> PlayerLog.tick(mc));
         safe("ActivityScanner", () -> ActivityScanner.tick(mc));
         safe("FarmFinder", () -> FarmFinder.tick(mc));
-        safe("CaveFinder", () -> CaveFinder.tick(mc));
         safe("PortalCalc", () -> PortalCalc.tick(mc));
+        safe("RtpHunter", () -> RtpHunter.tick(mc));
         safe("SweepMap", () -> SweepMap.tick(mc));
         safe("ReachTest", () -> ReachTest.tick(mc));
         safe("LightFinder", () -> LightFinder.tick(mc));

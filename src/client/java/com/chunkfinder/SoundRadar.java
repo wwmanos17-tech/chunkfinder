@@ -110,7 +110,7 @@ public final class SoundRadar {
             int dist = (int) Math.round(Math.sqrt(dx * dx + dy * dy + dz * dz));
             String vert = dy > 3 ? " ^" + Math.round(dy) : dy < -3 ? " v" + Math.round(-dy) : "";
             String label = NAME[e.kind] + " " + dist + "m" + vert;
-            int tw = mc.textRenderer.getWidth(label);
+            int tw = PFont.w(mc, label);
             int ex = cx + (int) Math.round(Math.sin(rel) * 70) - tw / 2;
             int ey = cy - (int) Math.round(Math.cos(rel) * 52) - 4;
             float fade = 1f - Math.max(0f, (now - e.at) / (float) keep - 0.6f) / 0.4f;
@@ -118,7 +118,7 @@ public final class SoundRadar {
             int bg = (alpha * 150 / 255) << 24;
             ctx.fill(ex - 3, ey - 2, ex + tw + 3, ey + 10, bg);
             ctx.fill(ex - 3, ey - 2, ex - 1, ey + 10, (alpha << 24) | (COLOR[e.kind] & 0xFFFFFF));
-            ctx.drawTextWithShadow(mc.textRenderer, Text.literal(label), ex, ey, (alpha << 24) | (COLOR[e.kind] & 0xFFFFFF));
+            ctx.drawTextWithShadow(mc.textRenderer, PFont.t(label), ex, ey, (alpha << 24) | (COLOR[e.kind] & 0xFFFFFF));
         }
     }
 
