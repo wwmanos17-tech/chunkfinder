@@ -24,6 +24,7 @@ public class ChunkFinderClient implements ClientModInitializer {
     private static KeyBinding portalSaveKey;
     private static KeyBinding portalDeleteKey;
     private static KeyBinding huntGoKey;
+    private static final KeyBinding[] cmdKeys = new KeyBinding[3];
     private static ClientWorld lastWorld = null;
 
     public static KeyBinding menuKey() { return menuKey; }
@@ -34,6 +35,7 @@ public class ChunkFinderClient implements ClientModInitializer {
     public static KeyBinding portalSaveKey() { return portalSaveKey; }
     public static KeyBinding portalDeleteKey() { return portalDeleteKey; }
     public static KeyBinding huntGoKey() { return huntGoKey; }
+    public static KeyBinding cmdKey(int i) { return cmdKeys[i]; }
 
     /** Gives a tool a new key, the same as changing it in Options > Controls. */
     public static void rebind(KeyBinding kb, int glfwKey) {
@@ -87,6 +89,11 @@ public class ChunkFinderClient implements ClientModInitializer {
         huntGoKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
             "key.chunkfinder.hunt_go", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_UNKNOWN, "key.categories.chunkfinder"));
 
+        for (int i = 0; i < 3; i++) {
+            cmdKeys[i] = KeyBindingHelper.registerKeyBinding(new KeyBinding(
+                "key.chunkfinder.cmd_" + (i + 1), InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_UNKNOWN, "key.categories.chunkfinder"));
+        }
+
         // Freecam reads the keyboard and releases the real movement keys before the player's own tick.
         ClientTickEvents.START_CLIENT_TICK.register(Freecam::tick);
 
@@ -102,6 +109,9 @@ public class ChunkFinderClient implements ClientModInitializer {
             }
             while (portalDeleteKey.wasPressed()) {
                 if (ChunkFinderConfig.INSTANCE.portalEnabled) PortalCalc.deleteNearest(mc);
+            }
+            for (int ci = 0; ci < 3; ci++) {
+                while (cmdKeys[ci].wasPressed()) CommandKeys.run(mc, ci);
             }
             while (huntGoKey.wasPressed()) {
                 if (ChunkFinderConfig.INSTANCE.huntEnabled) RtpHunter.goToBest(mc);
@@ -149,6 +159,7 @@ public class ChunkFinderClient implements ClientModInitializer {
         PharaohHud.register();
         MarketHelper.register();
         PortalCalc.registerCommands();
+        CommandKeys.registerCommands();
     }
 
     private static void safe(String name, Runnable r) {
@@ -170,6 +181,7 @@ public class ChunkFinderClient implements ClientModInitializer {
         safe("FarmFinder", () -> FarmFinder.tick(mc));
         safe("PortalCalc", () -> PortalCalc.tick(mc));
         safe("RtpHunter", () -> RtpHunter.tick(mc));
+        safe("Profiles", () -> Profiles.tick(mc));
         safe("SweepMap", () -> SweepMap.tick(mc));
         safe("ReachTest", () -> ReachTest.tick(mc));
         safe("LightFinder", () -> LightFinder.tick(mc));

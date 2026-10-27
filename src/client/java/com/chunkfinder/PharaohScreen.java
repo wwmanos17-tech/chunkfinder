@@ -58,6 +58,9 @@ public class PharaohScreen extends Screen {
         java.util.function.Supplier<net.minecraft.client.option.KeyBinding> keySupplier;
         String modKeyFor;
         java.util.function.Supplier<int[]> swatch;
+        /** A bar you click and type into (get / set the text). */
+        java.util.function.Supplier<String> tget;
+        Consumer<String> tset;
     }
 
     private static class Module {
@@ -85,6 +88,8 @@ public class PharaohScreen extends Screen {
     private final List<Hit> hits = new ArrayList<>();
     private Hit dragSlider = null;
     private Setting listening = null;
+    /** The text bar you are typing into, if any. */
+    private Setting typing = null;
 
     private int tab = 0;          // 0 Modules, 1 Favorites, 2 Appearance
     private int category = 0;     // 0 = overview, otherwise an index into the shown categories
@@ -194,6 +199,14 @@ public class PharaohScreen extends Screen {
         s.suffix = suffix;
         s.iget = get;
         s.iset = set;
+        return s;
+    }
+
+    private static Setting text(String label, java.util.function.Supplier<String> get, Consumer<String> set) {
+        Setting s = new Setting();
+        s.label = label;
+        s.tget = get;
+        s.tset = set;
         return s;
     }
 
@@ -492,6 +505,22 @@ public class PharaohScreen extends Screen {
                 toggle("Listed Price Is Per Item", () -> c.marketPerItem, v -> c.marketPerItem = v),
                 toggle("Best Flips Panel", () -> c.marketPanel, v -> c.marketPanel = v),
                 toggle("Forget Learned Prices", () -> false, v -> { if (v) MarketHelper.reset(); })),
+            module("Profiles", () -> c.profileAutoLoad, v -> c.profileAutoLoad = v,
+                toggle("Save For This Server", () -> false, v -> { if (v) Profiles.saveServer(); }),
+                toggle("Load This Server's Profile", () -> false, v -> { if (v) Profiles.loadServer(); }),
+                toggle("Save To Slot 1", () -> false, v -> { if (v) Profiles.saveSlot(1); }),
+                toggle("Load Slot 1", () -> false, v -> { if (v) Profiles.loadSlot(1); }),
+                toggle("Save To Slot 2", () -> false, v -> { if (v) Profiles.saveSlot(2); }),
+                toggle("Load Slot 2", () -> false, v -> { if (v) Profiles.loadSlot(2); }),
+                toggle("Save To Slot 3", () -> false, v -> { if (v) Profiles.saveSlot(3); }),
+                toggle("Load Slot 3", () -> false, v -> { if (v) Profiles.loadSlot(3); })),
+            module("Command Keys", () -> c.cmdEnabled, v -> c.cmdEnabled = v,
+                keybind("Slot 1 Key (Backspace removes)", () -> ChunkFinderClient.cmdKey(0)),
+                text("Slot 1 Sends", () -> c.cmdSlots[0], v -> c.cmdSlots[0] = v),
+                keybind("Slot 2 Key (Backspace removes)", () -> ChunkFinderClient.cmdKey(1)),
+                text("Slot 2 Sends", () -> c.cmdSlots[1], v -> c.cmdSlots[1] = v),
+                keybind("Slot 3 Key (Backspace removes)", () -> ChunkFinderClient.cmdKey(2)),
+                text("Slot 3 Sends", () -> c.cmdSlots[2], v -> c.cmdSlots[2] = v)),
             module("Name Protector", () -> c.nameProtect, v -> c.nameProtect = v)));
         PANELS.add(panel("Client", 0xFFE0A526,
             module("Chunk Colors", () -> true, v -> { }, chunkColorSettings(c)),
@@ -499,6 +528,7 @@ public class PharaohScreen extends Screen {
                 keybind("Menu Key", ChunkFinderClient::menuKey),
                 slider("Menu Size (applies on release)", 60, 200, "%", () -> c.menuScale, v -> c.menuScale = v),
                 toggle("Menu Sounds", () -> c.menuSounds, v -> c.menuSounds = v),
+                toggle("Pyramids Logo (instead of the pharaoh head)", () -> c.logoPyramid, v -> c.logoPyramid = v),
                 toggle("Pharaoh Font (Liberation Sans)", () -> c.pharaohFont, v -> c.pharaohFont = v),
                 toggle("Pharaoh Font In All Menus And Chat", () -> c.globalFont, v -> c.globalFont = v),
                 toggle("Use Poppins Instead", () -> c.pharaohFontPoppins, v -> c.pharaohFontPoppins = v),
@@ -1057,6 +1087,12 @@ public class PharaohScreen extends Screen {
                     int vw = uw(value);
                     c.drawTextWithShadow(this.textRenderer, ui(s.modKeyFor != null ? "Toggle Key" : s.label), lx, sy + 3, TEXT);
                     c.drawTextWithShadow(this.textRenderer, ui(value), x + w - vw - 12, sy + 3, listening == s ? 0xFFFFFFFF : bright);
+                } else if (s.tget != null) {
+                    String raw = s.tget.get();
+                    String cur = typing == s ? raw + ((System.currentTimeMillis() / 500) % 2 == 0 ? "_" : " ") : (raw.isEmpty() ? "(empty)" : raw);
+                    String shown = trim(cur, Math.max(40, w - uw(s.label) - 50));
+                    c.drawTextWithShadow(this.textRenderer, ui(s.label), lx, sy + 3, TEXT);
+                    c.drawTextWithShadow(this.textRenderer, ui(shown), x + w - uw(shown) - 12, sy + 3, typing == s ? 0xFFFFFFFF : bright);
                 } else if (s.slider) {
                     String value = s.iget.getAsInt() + s.suffix;
                     int vw = uw(value);
@@ -1182,6 +1218,7 @@ public class PharaohScreen extends Screen {
         }
 
         Hit h = hitAt(mx, my);
+        if (typing != null && (h == null || h.s() != typing)) { typing = null; ChunkFinderConfig.save(); }
         if (h == null) return super.mouseClicked(mx, my, button);
 
         switch (h.kind()) {
@@ -1222,6 +1259,11 @@ public class PharaohScreen extends Screen {
                 if (button == 1 && (s.keySupplier != null || s.modKeyFor != null)) {
                     listening = null;
                     resetKey(s);
+                    return true;
+                }
+                if (s.tget != null) {
+                    if (button == 1) { s.tset.accept(""); typing = null; ChunkFinderConfig.save(); return true; }
+                    if (button == 0) { typing = (typing == s) ? null : s; listening = null; searchFocus = false; }
                     return true;
                 }
                 if (button != 0) return true;
@@ -1349,6 +1391,11 @@ public class PharaohScreen extends Screen {
 
     @Override
     public boolean charTyped(char chr, int modifiers) {
+        if (typing != null) {
+            String cur = typing.tget.get();
+            if (chr >= 32 && chr != 127 && chr != '\u00a7' && cur.length() < 60) typing.tset.accept(cur + chr);
+            return true;
+        }
         if (searchFocus && chr >= 32 && chr != 127 && search.length() < 24) {
             search += chr;
             scroll = 0;
@@ -1359,6 +1406,18 @@ public class PharaohScreen extends Screen {
 
     @Override
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+        if (typing != null) {
+            String cur = typing.tget.get();
+            if (keyCode == GLFW.GLFW_KEY_BACKSPACE) {
+                if (!cur.isEmpty()) typing.tset.accept(cur.substring(0, cur.length() - 1));
+            } else if (keyCode == GLFW.GLFW_KEY_DELETE) {
+                typing.tset.accept("");
+            } else if (keyCode == GLFW.GLFW_KEY_ENTER || keyCode == GLFW.GLFW_KEY_KP_ENTER || keyCode == GLFW.GLFW_KEY_ESCAPE) {
+                typing = null;
+                ChunkFinderConfig.save();
+            }
+            return true;
+        }
         if (listening != null) {
             Setting s = listening;
             listening = null;
@@ -1401,6 +1460,7 @@ public class PharaohScreen extends Screen {
         MenuSounds.close();
         closeAt = System.currentTimeMillis();
         listening = null;
+        typing = null;
         searchFocus = false;
         dragSlider = null;
     }

@@ -19,6 +19,11 @@ public class ChunkFinderConfig {
     /** Size of the menu in percent. */
     public int menuScale = 100;
     public boolean menuSounds = true;
+    /** Load the saved profile of a server when you join it. */
+    public boolean profileAutoLoad = true;
+    /** Command Keys: what each of the three keys sends. */
+    public boolean cmdEnabled = true;
+    public String[] cmdSlots = {"rtp", "home", "spawn"};
     public int menuSoundVolume = 60;
     public boolean nameProtect = true;
     public String nameAlias = "Pharaoh";
@@ -61,7 +66,11 @@ public class ChunkFinderConfig {
     public boolean joinCover = true;
     public boolean focusCards = true;
     public boolean pharaohFont = true;
-    public boolean globalFont = true;
+    /** false = the original gold pharaoh head, true = the smooth gold pyramids picture. */
+    public boolean logoPyramid = false;
+    public boolean globalFont = false;
+    /** Set once, so the "all menus and chat" font is switched off one time for people who already had it on. */
+    public boolean fontMigrated = false;
     public boolean pharaohFontPoppins = false;
     public int susListCount = 5;
     public boolean detectLight = true;
@@ -309,6 +318,35 @@ public class ChunkFinderConfig {
         INSTANCE.clamp();
     }
 
+    /** The current settings as text (used by Profiles). */
+    public static String toJson() {
+        INSTANCE.clamp();
+        return GSON.toJson(INSTANCE);
+    }
+
+    /**
+     * Copies a saved profile into the live settings. It fills the same object the menu already uses, so the menu keeps
+     * working. Your saved portals and the auto-load switch are kept as they are.
+     */
+    public static boolean applyJson(String json) {
+        try {
+            Gson g = new GsonBuilder()
+                .registerTypeAdapter(ChunkFinderConfig.class, (com.google.gson.InstanceCreator<ChunkFinderConfig>) t -> INSTANCE)
+                .create();
+            java.util.List<PortalSave> keepPortals = INSTANCE.portalSaved;
+            boolean keepAuto = INSTANCE.profileAutoLoad;
+            ChunkFinderConfig r = g.fromJson(json, ChunkFinderConfig.class);
+            if (r == null) return false;
+            INSTANCE.portalSaved = keepPortals;
+            INSTANCE.profileAutoLoad = keepAuto;
+            INSTANCE.clamp();
+            save();
+            return true;
+        } catch (RuntimeException e) {
+            return false;
+        }
+    }
+
     public static void save() {
         INSTANCE.clamp();
         try {
@@ -339,6 +377,9 @@ public class ChunkFinderConfig {
         lightColor = fixColor(lightColor, new int[]{255, 230, 80});
         susSensitivity = clampInt(susSensitivity, 1, 10);
         susMaxY = clampInt(susMaxY, -60, 64);
+        if (cmdSlots == null || cmdSlots.length != 3) cmdSlots = new String[]{"rtp", "home", "spawn"};
+        for (int i = 0; i < 3; i++) if (cmdSlots[i] == null) cmdSlots[i] = "";
+        if (!fontMigrated) { globalFont = false; fontMigrated = true; }
         simulationDistance = clampInt(simulationDistance, 2, 32);
         scanInterval = clampInt(scanInterval, 5, 200);
         renderY = clampInt(renderY, -64, 320);
