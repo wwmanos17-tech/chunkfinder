@@ -39,6 +39,7 @@ public class PharaohHud {
                 SoundRadar.render(ctx, mc);
                 PortalCalc.render(ctx, mc);
                 RtpHunter.render(ctx, mc);
+                SusScanner.drawDebug(ctx, mc);
                 ArmorHud.render(ctx, mc);
             } catch (Throwable t) {
                 ChunkFinderClient.LOGGER.error("Region map drawing failed", t);

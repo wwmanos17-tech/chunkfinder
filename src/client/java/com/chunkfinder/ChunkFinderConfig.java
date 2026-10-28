@@ -55,6 +55,8 @@ public class ChunkFinderConfig {
     public int susSensitivity = 5;
     /** Sus Chunks only look at things at or below this height, so the surface and the already-griefed upper layers are ignored. */
     public int susMaxY = 2;
+    /** Shows why the chunk you stand in is or is not flagged. */
+    public boolean susDebug = false;
     public boolean clusterDeepOnly = true;
     public boolean tallColumns = true;
     public boolean susList = true;
@@ -68,6 +70,8 @@ public class ChunkFinderConfig {
     public boolean pharaohFont = true;
     /** false = the original gold pharaoh head, true = the smooth gold pyramids picture. */
     public boolean logoPyramid = false;
+    /** true = the original blocky pixel head. */
+    public boolean logoPixel = false;
     public boolean globalFont = false;
     /** Set once, so the "all menus and chat" font is switched off one time for people who already had it on. */
     public boolean fontMigrated = false;

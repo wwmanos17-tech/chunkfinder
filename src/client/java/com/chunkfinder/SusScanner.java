@@ -39,6 +39,8 @@ public class SusScanner {
     /** Exact block positions (packed BlockPos longs) of the clues in each chunk. The first HI entries are the important ones (storage, villagers). */
     public static final Map<ChunkPos, long[]> SPOTS = new ConcurrentHashMap<>();
     public static final Map<ChunkPos, Integer> HI = new ConcurrentHashMap<>();
+    /** Why each chunk got its score (shown by Sus Debug). */
+    private static final Map<ChunkPos, String> DETAIL = new ConcurrentHashMap<>();
 
     private record Cand(ChunkPos pos, boolean scanned, int dist2) {}
 
@@ -51,6 +53,34 @@ public class SusScanner {
     /** How many scans in a row gave a lower score than the one shown, per chunk. */
     private static final Map<ChunkPos, Integer> LOW = new HashMap<>();
 
+    /** Sus Debug: a small readout that says why the chunk you stand in is or is not flagged. */
+    public static void drawDebug(DrawContext ctx, MinecraftClient mc) {
+        ChunkFinderConfig cfg = ChunkFinderConfig.INSTANCE;
+        if (!cfg.susDebug || mc.player == null || mc.world == null) return;
+        java.util.List<String> lines = new ArrayList<>();
+        int need = cfg.requiredSusScore();
+        int best = 0;
+        for (int v : SCORES.values()) best = Math.max(best, v);
+        lines.add("SUS DEBUG   need " + need + " to flag   flagged " + FOUND.size() + "   scanned " + SCORES.size() + "   best score seen " + best);
+        if (mc.world.getRegistryKey() != World.OVERWORLD) {
+            lines.add("Sus Chunks only works in the Overworld");
+        } else {
+            ChunkPos here = mc.player.getChunkPos();
+            WorldChunk chunk = mc.world.getChunkManager().getWorldChunk(here.x, here.z);
+            Integer own = SCORES.get(here);
+            lines.add("Your chunk: " + (own == null ? "not scanned yet" : "score " + own));
+            if (chunk != null) lines.add("Real deep blocks here: " + (SweepMap.realDeep(chunk) ? "yes (good read)" : "no, the server sends filler (go lower or move)"));
+            String d = DETAIL.get(here);
+            if (d != null) lines.add("Found: " + d);
+        }
+        int y = 14;
+        for (String s : lines) {
+            int w = PFont.w(mc, s);
+            ctx.drawTextWithShadow(mc.textRenderer, PFont.t(s), Math.max(2, mc.getWindow().getScaledWidth() / 2 - w / 2), y, 0xFFFFD866);
+            y += 10;
+        }
+    }
+
     public static void clear() {
         age = 0;
         now = 0;
@@ -62,6 +92,7 @@ public class SusScanner {
         SPOTS.clear();
         HI.clear();
         NOTIFIED.clear();
+        DETAIL.clear();
     }
 
     private static boolean isSusBlock(BlockState s) {
@@ -279,13 +310,8 @@ public class SusScanner {
                 if (n > 0) { found = true; ys.add((int) (sum / n)); }
             }
         }
-        // a piston, glass, TNT and so on counts for more than doors or cobblestone steps, and one lone block counts for little
-        if (found) {
-            if (strong >= 3) score += 4;
-            else if (strong >= 1) score += 2;
-            else if (weak >= 6) score += 3;
-            else score += 1;
-        }
+        // a piston, glass, TNT and so on counts fully; doors and cobblestone steps alone (which strongholds also have) count for less
+        if (found) score += strong >= 1 ? 4 : (weak >= 6 ? 3 : 2);
 
         // 1b) things players keep in bases (chests, furnaces, hoppers, beds ...) below about y 47
         int storage = 0;
@@ -333,6 +359,8 @@ public class SusScanner {
         for (int i = 0; i < lo.size(); i++) all[hi.size() + i] = lo.get(i);
         SPOTS.put(chunk.getPos(), all);
         HI.put(chunk.getPos(), hi.size());
+        DETAIL.put(chunk.getPos(), "blocks " + strong + " strong " + weak + " weak, storage " + storage + ", villagers " + villagers
+            + (natural ? ", natural structure (-8)" : "") + ", looking at y " + (chunk.getBottomY()) + " to " + maxY);
         return score;
     }
 
