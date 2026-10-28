@@ -18,7 +18,7 @@ import java.util.function.IntSupplier;
  * Nothing is scaled, so the text stays sharp.
  */
 public class PharaohScreen extends Screen {
-    private static final int ROW = 15;
+    private static final int ROW = 18;
 
     private static final Identifier UI_FONT = Identifier.of("chunkfinder", "ui");
     private static final Identifier BOLD_FONT = Identifier.of("chunkfinder", "ui_bold");
@@ -334,7 +334,6 @@ public class PharaohScreen extends Screen {
                 toggle("Light Finder", () -> c.detectLight, v -> c.detectLight = v),
                 slider("Min Lights", 1, 20, "", () -> c.lightMin, v -> c.lightMin = v),
                 slider("Sus Sensitivity", 1, 10, "", () -> c.susSensitivity, v -> c.susSensitivity = v),
-                toggle("Sus Debug (why a chunk is or is not flagged)", () -> c.susDebug, v -> c.susDebug = v),
                 slider("Sus Max Height (only look at or below)", -60, 64, "", () -> c.susMaxY, v -> c.susMaxY = v),
                 toggle("Tall Columns", () -> c.tallColumns, v -> c.tallColumns = v),
                 toggle("Sus Chunk List", () -> c.susList, v -> c.susList = v),
@@ -369,6 +368,11 @@ public class PharaohScreen extends Screen {
                 toggle("Alert: Spawners", () -> c.alertSpawners, v -> c.alertSpawners = v),
                 toggle("Alert: Stashes", () -> c.alertStash, v -> c.alertStash = v),
                 toggle("Alert: Bases", () -> c.alertBases, v -> c.alertBases = v)),
+            module("New Chunks", () -> c.newChunksEnabled, v -> c.newChunksEnabled = v,
+                toggle("Show New Chunks (red)", () -> c.newChunksShowNew, v -> c.newChunksShowNew = v),
+                toggle("Show Old Chunks (blue)", () -> c.newChunksShowOld, v -> c.newChunksShowOld = v),
+                slider("Range (chunks)", 2, 24, "", () -> c.newChunksRange, v -> c.newChunksRange = v),
+                slider("Draw Below You", 2, 120, " blocks", () -> c.newChunksDown, v -> c.newChunksDown = v)),
             module("Sound Radar", () -> c.soundEnabled, v -> c.soundEnabled = v,
                 slider("Show For", 2, 30, " s", () -> c.soundSeconds, v -> c.soundSeconds = v),
                 toggle("Mark Block In World", () -> c.soundMarks, v -> c.soundMarks = v),
@@ -376,12 +380,6 @@ public class PharaohScreen extends Screen {
                 toggle("Chests And Barrels", () -> c.soundStorage, v -> c.soundStorage = v),
                 toggle("Digging", () -> c.soundDig, v -> c.soundDig = v),
                 toggle("Pistons, Furnaces, Hoppers", () -> c.soundMachines, v -> c.soundMachines = v)),
-            module("Farm Finder", () -> c.farmEnabled, v -> c.farmEnabled = v,
-                slider("Entities To Flag", 3, 60, "", () -> c.farmMin, v -> c.farmMin = v),
-                toggle("Underground Only", () -> c.farmUnderground, v -> c.farmUnderground = v),
-                toggle("Labels", () -> c.farmLabels, v -> c.farmLabels = v),
-                toggle("Tracers", () -> c.farmTracer, v -> c.farmTracer = v),
-                toggle("Chat Alerts", () -> c.farmChat, v -> c.farmChat = v)),
             module("Activity Detector", () -> c.activityEnabled, v -> c.activityEnabled = v,
                 slider("Redstone Parts To Flag", 2, 60, "", () -> c.activityRedstoneMin, v -> c.activityRedstoneMin = v),
                 toggle("Redstone Changes", () -> c.activityRedstone, v -> c.activityRedstone = v),
@@ -391,6 +389,7 @@ public class PharaohScreen extends Screen {
                 toggle("Chat Alerts", () -> c.activityChat, v -> c.activityChat = v)),
             module("RTP Hunter", () -> c.huntEnabled, v -> c.huntEnabled = v,
                 toggle("Chat Alert On New Find", () -> c.huntAlert, v -> c.huntAlert = v),
+                toggle("Hide Sus Chunk List While On (same finds)", () -> c.huntHidesSusList, v -> c.huntHidesSusList = v),
                 toggle("Beam Above Every Find", () -> c.huntBeams, v -> c.huntBeams = v),
                 keybind("Guide To Best Find Key", ChunkFinderClient::huntGoKey),
                 toggle("Clear Find List", () -> false, v -> { if (v) RtpHunter.clearLog(); }))));
@@ -446,10 +445,7 @@ public class PharaohScreen extends Screen {
                 keybind(ChunkFinderClient::freecamKey),
                 slider("Speed", 1, 60, "", () -> c.freecamSpeed, v -> c.freecamSpeed = v)),
             module("Region Map", () -> c.regionMapEnabled, v -> c.regionMapEnabled = v,
-                slider("Map Size", 6, 30, "", () -> c.regionMapCell, v -> c.regionMapCell = v)),
-            module("Sweep Map", () -> c.sweepEnabled, v -> c.sweepEnabled = v,
-                slider("Map Radius (chunks)", 5, 24, "", () -> c.sweepRadius, v -> c.sweepRadius = v),
-                toggle("Show Sus And Farms", () -> c.sweepFlags, v -> c.sweepFlags = v))));
+                slider("Map Size", 6, 30, "", () -> c.regionMapCell, v -> c.regionMapCell = v))));
         PANELS.add(panel("Players", 0xFFE0A526,
             module("Player Logger", () -> c.playerLogEnabled, v -> c.playerLogEnabled = v,
                 toggle("Show List", () -> c.playerLogShowList, v -> c.playerLogShowList = v),
@@ -477,10 +473,7 @@ public class PharaohScreen extends Screen {
                     net.minecraft.client.MinecraftClient mc = net.minecraft.client.MinecraftClient.getInstance();
                     mc.setScreen(null);
                     SpectatorAlert.test(mc);
-                })),
-            module("Reach Test", () -> c.reachEnabled, v -> c.reachEnabled = v,
-                slider("Panel X", 0, 600, "", () -> c.reachX, v -> c.reachX = v),
-                slider("Panel Y", 0, 400, "", () -> c.reachY, v -> c.reachY = v))));
+                }))));
         PANELS.add(panel("HUD", 0xFFF0C14B,
             module("FPS Counter", () -> c.fpsEnabled, v -> c.fpsEnabled = v),
             module("Session Timer", () -> c.timerEnabled, v -> c.timerEnabled = v,
@@ -813,6 +806,7 @@ public class PharaohScreen extends Screen {
         round(c, wx, wy, wx + ww, wy + wh, 0xF20D0B08, 6);
         c.fill(wx + 1, wy + HEADER, wx + ww - 1, wy + HEADER + 1, 0xFF2E2612);
         c.fill(wx + SIDE, wy + HEADER + 8, wx + SIDE + 1, wy + wh - 8, 0xFF2E2612);
+        c.fill(wx + 12, wy + wh - 50, wx + SIDE - 12, wy + wh - 49, 0xFF2E2612);
 
         // logo and name
         LogoRenderer.draw(c, wx + 10, wy + 4);
@@ -839,13 +833,14 @@ public class PharaohScreen extends Screen {
             tabHov[i] = step(tabHov[i], i == tab ? 1f : (th ? 0.7f : 0f), 16f);
             c.drawTextWithShadow(this.textRenderer, ui(TABS[i]), tx + 11, wy + 16, mix(TEXT, DIM, tabHov[i]));
         }
-        boolean overX = mx >= wx + ww - 26 && mx < wx + ww - 6 && my >= wy + 8 && my < wy + 32;
+        boolean overX = mx >= wx + ww - 34 && mx < wx + ww - 10 && my >= wy + 10 && my < wy + 30;
         btnHov[2] = step(btnHov[2], overX ? 1f : 0f, 18f);
-        c.drawTextWithShadow(this.textRenderer, ui("x"), wx + ww - 17, wy + 16, mix(0xFFFFFFFF, DIM, btnHov[2]));
+        round(c, wx + ww - 34, wy + 10, wx + ww - 10, wy + 30, mix(0xFF4A3A16, 0xFF221C0F, btnHov[2]), 5);
+        c.drawTextWithShadow(this.textRenderer, ui("x"), wx + ww - 22 - uw("x") / 2, wy + 16, mix(0xFFFFFFFF, TEXT, btnHov[2]));
 
         // size buttons: smaller / bigger menu
         for (int b = 0; b < 2; b++) {
-            int bx = wx + ww - 92 + b * 28;
+            int bx = wx + ww - 90 + b * 28;
             boolean hv = mx >= bx && mx < bx + 24 && my >= wy + 10 && my < wy + 30;
             btnHov[b] = step(btnHov[b], hv ? 1f : 0f, 18f);
             round(c, bx, wy + 10, bx + 24, wy + 30, mix(0xFF4A3A16, 0xFF221C0F, btnHov[b]), 5);
@@ -882,7 +877,17 @@ public class PharaohScreen extends Screen {
                 round(c, wx + 8, iy, wx + SIDE - 8, iy + 20, mix(0xFF18140C, 0xFF0D0B08, catHov[i]), 5);
             }
             String label = i == 0 ? "Overview" : cats.get(i - 1).title;
-            c.drawTextWithShadow(this.textRenderer, ui(label), wx + 18, iy + 6, mix(TEXT, DIM, catHov[i]));
+            int dotCol = i == 0 ? ACCENT : cats.get(i - 1).color;
+            disc(c, wx + 21, iy + 10, 2.5f, mix(dotCol, 0xFF4A3A16, 0.45f + 0.55f * catHov[i]));
+            c.drawTextWithShadow(this.textRenderer, ui(label), wx + 30, iy + 6, mix(TEXT, DIM, catHov[i]));
+            int cnt = 0;
+            if (i == 0) {
+                for (Panel p : cats) for (Module m : p.mods) if (!APPEARANCE.contains(m.name)) cnt++;
+            } else {
+                for (Module m : cats.get(i - 1).mods) if (!APPEARANCE.contains(m.name)) cnt++;
+            }
+            String cs = String.valueOf(cnt);
+            c.drawTextWithShadow(this.textRenderer, ui(cs), wx + SIDE - 16 - uw(cs), iy + 6, DIM);
         }
 
         // sidebar: footer
@@ -942,7 +947,7 @@ public class PharaohScreen extends Screen {
         c.enableScissor(x0 - 2, top, x0 + cw + 2, bottom);
         for (Module m : mods) {
             float oa = springAnim(openAnim, m, m.open ? 1f : 0f, 14f);
-            int h = CARD + Math.round((m.settings.size() * ROW + 6) * oa);
+            int h = CARD + Math.round((m.settings.size() * ROW + 8) * oa);
             boolean wide = m.open || oa > 0.02f;
             int tx, tw;
             if (wide) {
@@ -1016,7 +1021,7 @@ public class PharaohScreen extends Screen {
 
     private static final int HEADER = 40;
     private static final int SIDE = 118;
-    private static final int CARD = 46;
+    private static final int CARD = 48;
 
     private void addHit(int kind, Module m, Setting s, int x, int y, int w, int h, int top, int bottom) {
         int y1 = Math.max(y, top);
@@ -1031,7 +1036,7 @@ public class PharaohScreen extends Screen {
         int bright = mix(col, 0xFFFFFFFF, 0.5f);
         float swT = springAnim(swAnim, m, on ? 1f : 0f, 15f);
 
-        addHit(3, m, null, x, y, w - 86, CARD, top, bottom);
+        addHit(3, m, null, x, y, w - 112, CARD, top, bottom);
         boolean hov = mx >= x && mx < x + w && my >= y && my < y + CARD && my >= top && my < bottom;
         round(c, x, y, x + w, y + h, mix(mix(col, 0xFF4A3A16, 0.55f), 0xFF4A3A16, swT), 7);
         float hvT = anim(hovAnim, m, hov ? 1f : 0f, 14f);
@@ -1045,7 +1050,7 @@ public class PharaohScreen extends Screen {
         String kt;
         if (ks != null && listening == ks) kt = "Press a key...";
         else kt = "Key: " + currentKey(m);
-        int kw = Math.min(w - 100, 110);
+        int kw = Math.min(w - 128, 110);
         round(c, x + 14, y + 25, x + 14 + kw, y + 40, 0xFF0A0804, 4);
         c.drawTextWithShadow(this.textRenderer, ui(trim(kt, kw - 10)), x + 19, y + 29,
             (ks != null && listening == ks) ? 0xFFFFFFFF : (currentKey(m).equals("None") ? 0xFFC2B896 : 0xFFE8C170));
@@ -1053,14 +1058,14 @@ public class PharaohScreen extends Screen {
 
         // + (settings), star, switch
         if (!m.settings.isEmpty()) {
-            plusButton(c, x + w - 98, y + 11, oa);
-            addHit(1, m, null, x + w - 102, y + 6, 26, 28, top, bottom);
+            plusButton(c, x + w - 104, y + 15, oa);
+            addHit(1, m, null, x + w - 108, y + 8, 26, 32, top, bottom);
         }
         boolean fav = isFavorite(m);
-        star(c, x + w - 70, y + 13, fav ? 0xFFFFC21A : 0xFFC9BC94);
-        addHit(2, m, null, x + w - 74, y + 8, 22, 26, top, bottom);
-        pill(c, x + w - 42, y + 12, swT, col);
-        addHit(0, m, null, x + w - 46, y + 8, 40, 24, top, bottom);
+        star(c, x + w - 74, y + 16, fav ? 0xFFFFC21A : 0xFFC9BC94);
+        addHit(2, m, null, x + w - 78, y + 8, 24, 32, top, bottom);
+        pill(c, x + w - 46, y + 15, swT, col);
+        addHit(0, m, null, x + w - 50, y + 8, 42, 32, top, bottom);
 
         // settings
         if (oa > 0.01f) {
@@ -1069,13 +1074,13 @@ public class PharaohScreen extends Screen {
             c.fill(x + 10, sy - 1, x + w - 10, sy, alpha(col, 0x55));
             for (Setting s : m.settings) {
                 boolean sh = mx >= x && mx < x + w && my >= sy && my < sy + ROW && my >= top && my < bottom;
-                if (sh) round(c, x + 4, sy, x + w - 4, sy + ROW, 0x22FFFFFF, 3);
+                if (sh) round(c, x + 4, sy, x + w - 4, sy + ROW, 0x22FFFFFF, 4);
                 int lx = x + 14;
                 if (s.swatch != null) {
                     int[] sc = s.swatch.get();
-                    c.drawTextWithShadow(this.textRenderer, ui(s.label), lx, sy + 3, TEXT);
-                    round(c, x + w - 34, sy + 2, x + w - 10, sy + ROW - 2, 0xFFFFFFFF, 3);
-                    round(c, x + w - 33, sy + 3, x + w - 11, sy + ROW - 3, 0xFF000000 | (sc[0] << 16) | (sc[1] << 8) | sc[2], 2);
+                    c.drawTextWithShadow(this.textRenderer, ui(s.label), lx, sy + 5, TEXT);
+                    round(c, x + w - 36, sy + 3, x + w - 12, sy + ROW - 3, 0xFFFFFFFF, 4);
+                    round(c, x + w - 35, sy + 4, x + w - 13, sy + ROW - 4, 0xFF000000 | (sc[0] << 16) | (sc[1] << 8) | sc[2], 3);
                 } else if (s.modKeyFor != null || s.keySupplier != null) {
                     String value;
                     if (listening == s) {
@@ -1087,30 +1092,33 @@ public class PharaohScreen extends Screen {
                         value = s.keySupplier.get().getBoundKeyLocalizedText().getString();
                     }
                     int vw = uw(value);
-                    c.drawTextWithShadow(this.textRenderer, ui(s.modKeyFor != null ? "Toggle Key" : s.label), lx, sy + 3, TEXT);
-                    c.drawTextWithShadow(this.textRenderer, ui(value), x + w - vw - 12, sy + 3, listening == s ? 0xFFFFFFFF : bright);
+                    c.drawTextWithShadow(this.textRenderer, ui(s.modKeyFor != null ? "Toggle Key" : s.label), lx, sy + 5, TEXT);
+                    c.drawTextWithShadow(this.textRenderer, ui(value), x + w - vw - 12, sy + 5, listening == s ? 0xFFFFFFFF : bright);
                 } else if (s.tget != null) {
                     String raw = s.tget.get();
                     String cur = typing == s ? raw + ((System.currentTimeMillis() / 500) % 2 == 0 ? "_" : " ") : (raw.isEmpty() ? "(empty)" : raw);
                     String shown = trim(cur, Math.max(40, w - uw(s.label) - 50));
-                    c.drawTextWithShadow(this.textRenderer, ui(s.label), lx, sy + 3, TEXT);
-                    c.drawTextWithShadow(this.textRenderer, ui(shown), x + w - uw(shown) - 12, sy + 3, typing == s ? 0xFFFFFFFF : bright);
+                    c.drawTextWithShadow(this.textRenderer, ui(s.label), lx, sy + 5, TEXT);
+                    c.drawTextWithShadow(this.textRenderer, ui(shown), x + w - uw(shown) - 12, sy + 5, typing == s ? 0xFFFFFFFF : bright);
                 } else if (s.slider) {
                     String value = s.iget.getAsInt() + s.suffix;
                     int vw = uw(value);
                     c.drawTextWithShadow(this.textRenderer, ui(trim(s.label, w - vw - 40)), lx, sy + 2, TEXT);
                     c.drawTextWithShadow(this.textRenderer, ui(value), x + w - vw - 12, sy + 2, bright);
-                    c.fill(x + 12, sy + ROW - 3, x + w - 12, sy + ROW - 1, 0xFF2E2718);
+                    int tx1 = x + 14, tx2 = x + w - 14, ty = sy + ROW - 5;
+                    round(c, tx1, ty, tx2, ty + 3, 0xFF2E2718, 1);
                     float ratio = (s.iget.getAsInt() - s.min) / (float) (s.max - s.min);
                     float shownRatio = anim(slAnim, s, ratio, 26f);
-                    c.fill(x + 12, sy + ROW - 3, x + 12 + Math.round((w - 24) * shownRatio), sy + ROW - 1, col);
+                    int fillX = tx1 + Math.round((tx2 - tx1) * shownRatio);
+                    if (fillX > tx1) round(c, tx1, ty, fillX, ty + 3, col, 1);
+                    disc(c, fillX, ty + 1.5f, 2.6f, 0xFFFFFFFF);
                 } else {
                     boolean sOn = s.get.getAsBoolean();
-                    c.drawTextWithShadow(this.textRenderer, ui(trim(s.label, w - 60)), lx, sy + 3, sOn ? TEXT : DIM);
+                    c.drawTextWithShadow(this.textRenderer, ui(trim(s.label, w - 60)), lx, sy + 5, sOn ? TEXT : DIM);
                     float stT = springAnim(swAnim, s, sOn ? 1f : 0f, 15f);
-                    round(c, x + w - 32, sy + 3, x + w - 14, sy + 12, mix(col, 0xFF2E2718, stT), 4);
-                    int kx = Math.round(x + w - 30 + 7 * stT);
-                    round(c, kx, sy + 5, kx + 5, sy + 10, 0xFFFFFFFF, 2);
+                    round(c, x + w - 36, sy + 4, x + w - 14, sy + 14, mix(col, 0xFF2E2718, stT), 5);
+                    int kx = Math.round(x + w - 34 + 12 * stT);
+                    round(c, kx, sy + 6, kx + 6, sy + 12, 0xFFFFFFFF, 3);
                 }
                 if (oa > 0.98f) addHit(4, m, s, x, sy, w, ROW, top, bottom);
                 sy += ROW;
@@ -1132,7 +1140,7 @@ public class PharaohScreen extends Screen {
 
     private void setSlider(Hit h, double mx) {
         Setting s = h.s();
-        double ratio = (mx - (h.x() + 12)) / (double) (h.w() - 24);
+        double ratio = (mx - (h.x() + 14)) / (double) (h.w() - 28);
         ratio = Math.max(0, Math.min(1, ratio));
         int before = s.iset == null ? 0 : s.min + (int) Math.round(ratio * (s.max - s.min));
         s.iset.accept(before);
@@ -1153,7 +1161,7 @@ public class PharaohScreen extends Screen {
             // the staff list can be dragged around while the menu is open (when it is outside the menu window)
             boolean inWindow = mx * d >= wx && mx * d < wx + ww && my * d >= wy && my * d < wy + wh;
             if (button == 0 && !inWindow) {
-                int[][] boxes = {StaffTracker.BOUNDS, RegionMap.BOUNDS, FpsBar.BOUNDS, PlayerLog.BOUNDS, ArmorHud.BOUNDS, SweepMap.BOUNDS, PortalCalc.BOUNDS, RtpHunter.BOUNDS};
+                int[][] boxes = {StaffTracker.BOUNDS, RegionMap.BOUNDS, FpsBar.BOUNDS, PlayerLog.BOUNDS, ArmorHud.BOUNDS, PortalCalc.BOUNDS, RtpHunter.BOUNDS};
                 for (int i = 0; i < boxes.length; i++) {
                     int[] b = boxes[i];
                     if (b[2] > 0 && mx >= b[0] && mx < b[0] + b[2] && my >= b[1] && my < b[1] + b[3]) {
@@ -1175,14 +1183,14 @@ public class PharaohScreen extends Screen {
         if (button == 0) {
             // size buttons
             for (int b = 0; b < 2; b++) {
-                int bx = wx + ww - 92 + b * 28;
+                int bx = wx + ww - 90 + b * 28;
                 if (mx >= bx && mx < bx + 24 && my >= wy + 10 && my < wy + 30) {
                     resize(b == 0 ? -10 : 10);
                     return true;
                 }
             }
             // close
-            if (mx >= wx + ww - 26 && mx < wx + ww - 6 && my >= wy + 8 && my < wy + 32) {
+            if (mx >= wx + ww - 34 && mx < wx + ww - 10 && my >= wy + 10 && my < wy + 30) {
                 close();
                 return true;
             }
@@ -1304,9 +1312,6 @@ public class PharaohScreen extends Screen {
                     ChunkFinderConfig.INSTANCE.armorX = (int) mx - hudOffX;
                     ChunkFinderConfig.INSTANCE.armorY = (int) my - hudOffY;
                 } else if (dragHud == 6) {
-                    ChunkFinderConfig.INSTANCE.sweepX = (int) mx - hudOffX;
-                    ChunkFinderConfig.INSTANCE.sweepY = (int) my - hudOffY;
-                } else if (dragHud == 7) {
                     ChunkFinderConfig.INSTANCE.portalX = (int) mx - hudOffX;
                     ChunkFinderConfig.INSTANCE.portalY = (int) my - hudOffY;
                 } else {

@@ -55,8 +55,6 @@ public class ChunkFinderConfig {
     public int susSensitivity = 5;
     /** Sus Chunks only look at things at or below this height, so the surface and the already-griefed upper layers are ignored. */
     public int susMaxY = 2;
-    /** Shows why the chunk you stand in is or is not flagged. */
-    public boolean susDebug = false;
     public boolean clusterDeepOnly = true;
     public boolean tallColumns = true;
     public boolean susList = true;
@@ -155,11 +153,6 @@ public class ChunkFinderConfig {
     public boolean timerShowStopwatch = true;
     public boolean timerShowClock = false;
 
-    // ---------------- Reach Test ----------------
-    public boolean reachEnabled = false;
-    public int reachX = 4;
-    public int reachY = 140;
-
     // ---------------- Market Helper ----------------
     public boolean marketEnabled = false;
     public int marketMinPercent = 25;
@@ -172,6 +165,14 @@ public class ChunkFinderConfig {
     public boolean huntEnabled = false;
     public boolean huntAlert = true;
     public boolean huntBeams = true;
+    // ---------------- New Chunks ----------------
+    public boolean newChunksEnabled = false;
+    public boolean newChunksShowNew = true;
+    public boolean newChunksShowOld = true;
+    public int newChunksRange = 10;
+    public int newChunksDown = 12;
+    /** The small Sus Chunks list is hidden while RTP Hunter is on, because RTP Hunter shows the same finds. */
+    public boolean huntHidesSusList = true;
     public int huntX = 4;
     public int huntY = 90;
 
@@ -199,21 +200,6 @@ public class ChunkFinderConfig {
     public boolean soundStorage = true;
     public boolean soundDig = true;
     public boolean soundMachines = true;
-
-    // ---------------- Farm Finder ----------------
-    public boolean farmEnabled = false;
-    public int farmMin = 8;
-    public boolean farmUnderground = true;
-    public boolean farmChat = true;
-    public boolean farmTracer = false;
-    public boolean farmLabels = true;
-
-    // ---------------- Sweep Map ----------------
-    public boolean sweepEnabled = false;
-    public int sweepRadius = 12;
-    public boolean sweepFlags = true;
-    public int sweepX = 4;
-    public int sweepY = 60;
 
     // ---------------- Activity Detector ----------------
     public boolean activityEnabled = false;
@@ -381,6 +367,8 @@ public class ChunkFinderConfig {
         lightColor = fixColor(lightColor, new int[]{255, 230, 80});
         susSensitivity = clampInt(susSensitivity, 1, 10);
         susMaxY = clampInt(susMaxY, -60, 64);
+        newChunksRange = clampInt(newChunksRange, 2, 24);
+        newChunksDown = clampInt(newChunksDown, 2, 120);
         if (cmdSlots == null || cmdSlots.length != 3) cmdSlots = new String[]{"rtp", "home", "spawn"};
         for (int i = 0; i < 3; i++) if (cmdSlots[i] == null) cmdSlots[i] = "";
         if (!fontMigrated) { globalFont = false; fontMigrated = true; }
@@ -399,7 +387,6 @@ public class ChunkFinderConfig {
         entityEspRange = clampInt(entityEspRange, 8, 512);
         playerLogLines = clampInt(playerLogLines, 2, 15);
         activityRedstoneMin = clampInt(activityRedstoneMin, 2, 60);
-        farmMin = clampInt(farmMin, 3, 60);
         soundSeconds = clampInt(soundSeconds, 2, 30);
         huntX = clampInt(huntX, 0, 3000);
         huntY = clampInt(huntY, 0, 3000);
@@ -407,14 +394,9 @@ public class ChunkFinderConfig {
         portalY = clampInt(portalY, 0, 3000);
         if (portalSaved == null) portalSaved = new java.util.ArrayList<>();
         portalSaved.removeIf(p -> p == null || (p.dim != 0 && p.dim != 1));
-        sweepRadius = clampInt(sweepRadius, 5, 24);
-        sweepX = clampInt(sweepX, 0, 4000);
-        sweepY = clampInt(sweepY, 0, 4000);
         marketMinPercent = clampInt(marketMinPercent, 5, 95);
         marketMinProfit = clampInt(marketMinProfit, 0, 1000000);
         marketFee = clampInt(marketFee, 0, 30);
-        reachX = clampInt(reachX, 0, 2000);
-        reachY = clampInt(reachY, 0, 2000);
         armorScale = clampInt(armorScale, 50, 250);
         spectatorRange = clampInt(spectatorRange, 4, 128);
         spectatorHeadPercent = clampInt(spectatorHeadPercent, 10, 100);

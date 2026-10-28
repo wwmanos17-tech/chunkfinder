@@ -56,7 +56,6 @@ public class ChunkFinderClient implements ClientModInitializer {
         SessionTimer.clear();
         ActivityScanner.clear();
         SoundRadar.clear();
-        ReachTest.clear();
         LightFinder.clear();
         ChestEsp.clear();
         OreEsp.clear();
@@ -159,6 +158,9 @@ public class ChunkFinderClient implements ClientModInitializer {
         PharaohHud.register();
         MarketHelper.register();
         PortalCalc.registerCommands();
+        net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientChunkEvents.CHUNK_LOAD.register((world, chunk) -> {
+            try { NewChunks.onChunkLoad(chunk); } catch (Throwable ignored) { }
+        });
         CommandKeys.registerCommands();
     }
 
@@ -178,12 +180,10 @@ public class ChunkFinderClient implements ClientModInitializer {
         safe("ClusterEsp", () -> ClusterEsp.tick(mc));
         safe("PlayerLog", () -> PlayerLog.tick(mc));
         safe("ActivityScanner", () -> ActivityScanner.tick(mc));
-        safe("FarmFinder", () -> FarmFinder.tick(mc));
         safe("PortalCalc", () -> PortalCalc.tick(mc));
         safe("RtpHunter", () -> RtpHunter.tick(mc));
         safe("Profiles", () -> Profiles.tick(mc));
-        safe("SweepMap", () -> SweepMap.tick(mc));
-        safe("ReachTest", () -> ReachTest.tick(mc));
+        safe("NewChunks", () -> NewChunks.tick(mc));
         safe("LightFinder", () -> LightFinder.tick(mc));
         safe("OreEsp", () -> OreEsp.tick(mc));
         safe("SpectatorAlert", () -> SpectatorAlert.tick(mc));

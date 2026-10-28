@@ -32,14 +32,11 @@ public class PharaohHud {
                 MinecraftClient mc = MinecraftClient.getInstance();
                 if (mc.world == null || mc.player == null || mc.options.hudHidden) return;
                 RegionMap.render(ctx, mc);
-                SweepMap.render(ctx, mc);
                 FpsBar.render(ctx, mc);
                 PlayerLog.render(ctx, mc);
-                ReachTest.render(ctx, mc);
                 SoundRadar.render(ctx, mc);
                 PortalCalc.render(ctx, mc);
                 RtpHunter.render(ctx, mc);
-                SusScanner.drawDebug(ctx, mc);
                 ArmorHud.render(ctx, mc);
             } catch (Throwable t) {
                 ChunkFinderClient.LOGGER.error("Region map drawing failed", t);
@@ -71,7 +68,6 @@ public class PharaohHud {
             itemLabels(ctx, mc);
             entityLabels(ctx, mc);
             activityLabels(ctx, mc);
-            farmLabels(ctx, mc);
             if (FocusCards.on()) FocusCards.draw(ctx, mc);
             chestSummary(ctx, mc);
         } catch (Throwable t) {
@@ -97,11 +93,10 @@ public class PharaohHud {
             if (c.entityEspEnabled) names.add("ENTITY ESP");
             if (c.playerLogEnabled) names.add("PLAYER LOGGER");
             if (c.activityEnabled) names.add("ACTIVITY");
-            if (c.farmEnabled) names.add("FARM FINDER");
             if (c.soundEnabled) names.add("SOUND RADAR");
             if (c.portalEnabled) names.add("PORTAL CALC");
             if (c.huntEnabled) names.add("RTP HUNTER");
-            if (c.sweepEnabled) names.add("SWEEP MAP");
+            if (c.newChunksEnabled) names.add("NEW CHUNKS");
             if (c.oreEspEnabled) names.add("ORE ESP");
             if (c.spectatorEnabled) names.add("SPECTATOR ALERT");
             if (names.isEmpty()) return;
@@ -197,28 +192,6 @@ public class PharaohHud {
             }
             ctx.drawCenteredTextWithShadow(mc.textRenderer, PFont.t(text + " [" + dist + "m]"),
                 (int) sc[0], (int) sc[1], recent ? 0xFF4DFFFF : 0xFFFFD24D);
-            shown++;
-        }
-    }
-
-    private static void farmLabels(DrawContext ctx, MinecraftClient mc) {
-        ChunkFinderConfig cfg = ChunkFinderConfig.INSTANCE;
-        if (!cfg.farmEnabled || !cfg.farmLabels) return;
-        int shown = 0;
-        for (FarmFinder.Found f : FarmFinder.SHOWN) {
-            if (shown >= 10) break;
-            double cx = (f.minX() + f.maxX()) / 2, cz = (f.minZ() + f.maxZ()) / 2;
-            float[] s = Proj.toScreen(mc, new Vec3d(cx, f.maxY() + 1.0, cz));
-            if (s == null) continue;
-            int dist = (int) Math.hypot(cx - mc.player.getX(), cz - mc.player.getZ());
-            if (FocusCards.on()) {
-                FocusCards.offer("farm" + f.pos().x + "," + f.pos().z, s, "FARM FINDER", dist, f.text(), "score " + f.score(),
-                    "Animals, villagers or mobs packed in one spot", "", 0xFFB520);
-                shown++;
-                continue;
-            }
-            ctx.drawCenteredTextWithShadow(mc.textRenderer, PFont.t("FARM: " + f.text() + " [" + dist + "m]"),
-                (int) s[0], (int) s[1], 0xFFFFB520);
             shown++;
         }
     }

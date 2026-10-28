@@ -1,10 +1,12 @@
 package com.chunkfinder;
 
+import net.minecraft.block.BlockState;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.text.Text;
 import net.minecraft.util.math.ChunkPos;
 import net.minecraft.util.math.Vec3d;
+import net.minecraft.world.chunk.ChunkSection;
 import net.minecraft.world.chunk.WorldChunk;
 
 import java.util.ArrayList;
@@ -37,6 +39,11 @@ public final class RtpHunter {
     private static Object lastWorld = null;
     private static int realChunks = 0, totalChunks = 0;
     private static boolean readDone = false;
+    /** How many chunks held real deep blocks at set moments after the landing (ticks), and when the first flag showed up. */
+    private static final int[] STAMPS = {4, 10, 20, 40, 80, 160};
+    private static final int[] STAMP_REAL = {-1, -1, -1, -1, -1, -1};
+    private static int stampTotal = 0;
+    private static long firstFlagSince = -1;
 
     public static void clear() {
         LOG.clear();
@@ -47,6 +54,8 @@ public final class RtpHunter {
         realChunks = 0;
         totalChunks = 0;
         readDone = false;
+        java.util.Arrays.fill(STAMP_REAL, -1);
+        firstFlagSince = -1;
     }
 
     private static long key(int cx, int cz) {
@@ -78,6 +87,25 @@ public final class RtpHunter {
         }
     }
 
+    private static int[] countRead(MinecraftClient mc) {
+        int pcx = mc.player.getChunkPos().x, pcz = mc.player.getChunkPos().z;
+        int real = 0, total = 0;
+        for (int dx = -3; dx <= 3; dx++) {
+            for (int dz = -3; dz <= 3; dz++) {
+                WorldChunk c = mc.world.getChunkManager().getWorldChunk(pcx + dx, pcz + dz);
+                if (c == null) continue;
+                total++;
+                if (realDeep(c)) real++;
+            }
+        }
+        return new int[]{real, total};
+    }
+
+    private static String secs(int ticks) {
+        double s = ticks / 20.0;
+        return (s == Math.floor(s) ? String.valueOf((int) s) : String.format(java.util.Locale.ROOT, "%.1f", s)) + "s";
+    }
+
     public static void tick(MinecraftClient mc) {
         ChunkFinderConfig cfg = ChunkFinderConfig.INSTANCE;
         if (!cfg.huntEnabled || mc.world == null || mc.player == null) return;
@@ -91,6 +119,8 @@ public final class RtpHunter {
             readDone = false;
             realChunks = 0;
             totalChunks = 0;
+            java.util.Arrays.fill(STAMP_REAL, -1);
+            firstFlagSince = -1;
         }
         if (lastPos == null) landingTick = ticks;
         lastWorld = mc.world;
@@ -98,7 +128,7 @@ public final class RtpHunter {
 
         // read: for the first few seconds after a landing, count how many chunks around you hold real deep blocks
         long since = ticks - landingTick;
-        if (!readDone && since >= 20 && since % 20 == 0) {
+        if (since >= 20 && since % 20 == 0) {   // stays live, so you can see it change when you move up or down
             int pcx = mc.player.getChunkPos().x, pcz = mc.player.getChunkPos().z;
             int real = 0, total = 0;
             for (int dx = -3; dx <= 3; dx++) {
@@ -106,12 +136,33 @@ public final class RtpHunter {
                     WorldChunk c = mc.world.getChunkManager().getWorldChunk(pcx + dx, pcz + dz);
                     if (c == null) continue;
                     total++;
-                    if (SweepMap.realDeep(c)) real++;
+                    if (realDeep(c)) real++;
                 }
             }
             realChunks = real;
             totalChunks = total;
             if (since >= 200) readDone = true;
+        }
+
+        // timeline: real deep chunks at set moments after landing, and the moment the first flag shows up
+        for (int i = 0; i < STAMPS.length; i++) {
+            if (since == STAMPS[i]) {
+                int[] rt = countRead(mc);
+                STAMP_REAL[i] = rt[0];
+                stampTotal = rt[1];
+            }
+        }
+        if (firstFlagSince < 0 && since >= 2 && since < 600) {
+            boolean any = false;
+            for (ChunkPos p : SusScanner.FOUND.keySet()) {
+                if (Math.hypot(p.getStartX() + 8 - pos.x, p.getStartZ() + 8 - pos.z) < 100) { any = true; break; }
+            }
+            if (!any) {
+                for (ClusterEsp.Base b : ClusterEsp.BASES) {
+                    if (Math.hypot(b.cx() - pos.x, b.cz() - pos.z) < 100) { any = true; break; }
+                }
+            }
+            if (any) firstFlagSince = since;
         }
 
         // keep every find in the log
@@ -163,11 +214,26 @@ public final class RtpHunter {
             lines.add("Reading this landing..."); cols.add(0xFF9A9A9A);
         } else {
             boolean clean = realChunks >= totalChunks * 0.6;
-            lines.add("Deep read: " + realChunks + " of " + totalChunks + " chunks real" + (readDone ? "" : " (still loading)"));
+            lines.add("Deep read: " + realChunks + " of " + totalChunks + " chunks real  (you at y " + (int) Math.floor(mc.player.getY()) + ")" + (readDone ? "" : " (still loading)"));
             cols.add(clean ? 0xFF7CFF8A : 0xFFFF8A5C);
             if (readDone || since > 100) {
                 lines.add(clean ? "Clean read: if nothing is flagged, move on" : "Weak read: go lower or move a bit more");
                 cols.add(0xFF9A9A9A);
+            }
+        }
+        {
+            StringBuilder tl = new StringBuilder("Timeline (real chunks):");
+            boolean any = false;
+            for (int i = 0; i < STAMPS.length; i++) {
+                if (STAMP_REAL[i] < 0) continue;
+                tl.append(' ').append(secs(STAMPS[i])).append(' ').append(STAMP_REAL[i]).append('/').append(stampTotal);
+                any = true;
+            }
+            if (any) { lines.add(tl.toString()); cols.add(0xFF9A9A9A); }
+            if (firstFlagSince >= 0) {
+                lines.add("First flag " + secs((int) firstFlagSince) + " after landing"); cols.add(0xFF7CFF8A);
+            } else if (since > 60) {
+                lines.add("No flag near this landing"); cols.add(0xFF9A9A9A);
             }
         }
         double px = mc.player.getX(), pz = mc.player.getZ();
@@ -202,4 +268,35 @@ public final class RtpHunter {
             boxes.add(new EspRenderer.Box(f.x - 7.5, f.y - 3, f.z - 7.5, f.x + 8.5, f.y + 4, f.z + 8.5, 1f, 0.55f, 0.2f, 0.10f));
         }
     }
+
+    /** True when at least one deep section (below y 0) holds a mix of air and blocks, like real terrain. */
+    private static boolean realDeep(WorldChunk chunk) {
+        ChunkSection[] secs = chunk.getSectionArray();
+        boolean any = false;
+        for (int i = 0; i < secs.length; i++) {
+            int sy = chunk.getBottomSectionCoord() + i;
+            if (sy >= 0) break;
+            ChunkSection sec = secs[i];
+            if (sec == null) continue;
+            any = true;
+            if (sec.isEmpty()) return true;
+            int air = 0, total = 0;
+            BlockState first = null;
+            boolean same = true;
+            for (int y = 1; y < 16; y += 4) {
+                for (int z = 1; z < 16; z += 4) {
+                    for (int x = 1; x < 16; x += 4) {
+                        BlockState s = sec.getBlockState(x, y, z);
+                        total++;
+                        if (s.isAir()) air++;
+                        if (first == null) first = s;
+                        else if (s != first) same = false;
+                    }
+                }
+            }
+            if (air > 0 || !same) return true;
+        }
+        return !any;
+    }
+
 }
