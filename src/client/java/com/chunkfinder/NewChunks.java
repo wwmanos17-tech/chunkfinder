@@ -103,7 +103,7 @@ public final class NewChunks {
         if (!cfg.newChunksEnabled || (!cfg.newChunksShowNew && !cfg.newChunksShowOld)) return;
         int pcx = Math.floorDiv((int) Math.floor(cam.x), 16), pcz = Math.floorDiv((int) Math.floor(cam.z), 16);
         int r = cfg.newChunksRange;
-        double y = Math.floor(cam.y) - cfg.newChunksDown;
+        double y = cfg.newChunksY;   // a fixed height, so the colours stay put when you move up or down
         int n = 0;
         for (int dx = -r; dx <= r && n < 500; dx++) {
             for (int dz = -r; dz <= r && n < 500; dz++) {

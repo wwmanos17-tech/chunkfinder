@@ -168,9 +168,12 @@ public class ChunkFinderConfig {
     // ---------------- New Chunks ----------------
     public boolean newChunksEnabled = false;
     public boolean newChunksShowNew = true;
-    public boolean newChunksShowOld = true;
+    public boolean newChunksShowOld = false;
+    public boolean newChunksOldReset = false;
     public int newChunksRange = 10;
     public int newChunksDown = 12;
+    /** Fixed height of the New Chunks colours. */
+    public int newChunksY = 62;
     /** The small Sus Chunks list is hidden while RTP Hunter is on, because RTP Hunter shows the same finds. */
     public boolean huntHidesSusList = true;
     public int huntX = 4;
@@ -369,9 +372,11 @@ public class ChunkFinderConfig {
         susMaxY = clampInt(susMaxY, -60, 64);
         newChunksRange = clampInt(newChunksRange, 2, 24);
         newChunksDown = clampInt(newChunksDown, 2, 120);
+        newChunksY = clampInt(newChunksY, -64, 320);
         if (cmdSlots == null || cmdSlots.length != 3) cmdSlots = new String[]{"rtp", "home", "spawn"};
         for (int i = 0; i < 3; i++) if (cmdSlots[i] == null) cmdSlots[i] = "";
         if (!fontMigrated) { globalFont = false; fontMigrated = true; }
+        if (!newChunksOldReset) { newChunksShowOld = false; newChunksOldReset = true; }
         simulationDistance = clampInt(simulationDistance, 2, 32);
         scanInterval = clampInt(scanInterval, 5, 200);
         renderY = clampInt(renderY, -64, 320);
