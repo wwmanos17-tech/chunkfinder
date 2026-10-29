@@ -20,6 +20,17 @@ import java.util.function.IntSupplier;
 public class PharaohScreen extends Screen {
     private static final int ROW = 18;
 
+    /** Height of one setting row: sliders have a label line and a track line, so they are taller. */
+    private static int rowH(Setting s) {
+        return s.slider ? 26 : ROW;
+    }
+
+    private static int rowsH(Module m) {
+        int t = 0;
+        for (Setting s : m.settings) t += rowH(s);
+        return t;
+    }
+
     private static final Identifier UI_FONT = Identifier.of("chunkfinder", "ui");
     private static final Identifier BOLD_FONT = Identifier.of("chunkfinder", "ui_bold");
 
@@ -545,36 +556,16 @@ public class PharaohScreen extends Screen {
     }
 
     private static void round(DrawContext c, int x1, int y1, int x2, int y2, int color, int r) {
-        r = Math.max(0, Math.min(r, Math.min((x2 - x1) / 2, (y2 - y1) / 2)));
-        if (r == 0) {
-            c.fill(x1, y1, x2, y2, color);
-            return;
-        }
-        c.fill(x1, y1 + r, x2, y2 - r, color);
-        for (int dy = 0; dy < r; dy++) {
-            double d = r - dy - 0.5;
-            int inset = r - (int) Math.floor(Math.sqrt(r * r - d * d));
-            c.fill(x1 + inset, y1 + dy, x2 - inset, y1 + dy + 1, color);
-            c.fill(x1 + inset, y2 - 1 - dy, x2 - inset, y2 - dy, color);
-        }
+        Smooth.round(c, x1, y1, x2, y2, color, r);
     }
 
-    /** A properly round disc, drawn row by row. */
+    /** A properly round disc. */
     private static void disc(DrawContext c, float cx, float cy, float r, int color) {
-        for (int dy = (int) -Math.ceil(r); dy <= (int) Math.ceil(r); dy++) {
-            float yy = dy + 0.5f;
-            if (Math.abs(yy) > r) continue;
-            float half = (float) Math.sqrt(r * r - yy * yy);
-            int x1 = Math.round(cx - half), x2 = Math.round(cx + half);
-            if (x2 > x1) c.fill(x1, (int) cy + dy, x2, (int) cy + dy + 1, color);
-        }
+        Smooth.disc(c, cx, cy, r, color);
     }
 
     private static void capsule(DrawContext c, int x, int y, int w, int h, int color) {
-        float r = h / 2f;
-        disc(c, x + r, y + r, r, color);
-        disc(c, x + w - r, y + r, r, color);
-        c.fill((int) (x + r), y, (int) (x + w - r), y + h, color);
+        Smooth.round(c, x, y, x + w, y + h, color, h / 2);
     }
 
     private static void pill(DrawContext c, int x, int y, float t, int col) {
@@ -584,50 +575,69 @@ public class PharaohScreen extends Screen {
         disc(c, x + 9 + 14 * t, y + 9, 7f, mix(0xFFFFFFFF, 0xFF2F7BFF, t));
     }
 
-    private static void plusButton(DrawContext c, int x, int y, float open) {
-        round(c, x, y, x + 18, y + 18, 0xFFFFE08A, 4);
-        round(c, x + 1, y + 1, x + 17, y + 17, 0xFF2A2314, 4);
-        c.fill(x + 4, y + 8, x + 14, y + 10, 0xFFFFE08A);
-        int bar = Math.round(10 * (1f - open));
-        if (bar > 0) c.fill(x + 8, y + 9 - bar / 2, x + 10, y + 9 + (bar + 1) / 2, 0xFFFFE08A);
+    /** A thin arrow: points down when the settings are closed and turns up as they open. */
+    private static void chevron(DrawContext c, float cx, float cy, float open, int color) {
+        float k = Smooth.scale(c);
+        boolean soft = k > 1.01f;
+        c.getMatrices().push();
+        c.getMatrices().translate(cx, cy, 0f);
+        c.getMatrices().scale(1f / k, 1f / k, 1f);
+        float dir = 1f - 2f * Math.max(0f, Math.min(1f, open));
+        float[][] pts = {{-4.5f, -2f * dir}, {0f, 2.5f * dir}, {4.5f, -2f * dir}};
+        for (int seg = 0; seg < 2; seg++) {
+            float x1 = pts[seg][0] * k, y1 = pts[seg][1] * k, x2 = pts[seg + 1][0] * k, y2 = pts[seg + 1][1] * k;
+            int n = Math.max(2, (int) (Math.hypot(x2 - x1, y2 - y1) / (0.35f * k)));
+            for (int i = 0; i <= n; i++) {
+                float t = i / (float) n;
+                Smooth.discRaw(c, x1 + (x2 - x1) * t, y1 + (y2 - y1) * t, 0.95f * k, color, soft);
+            }
+        }
+        c.getMatrices().pop();
     }
 
     private static final String[] STAR = {
         "...#...", "...#...", "#######", ".#####.", "..###..", ".##.##.", ".#...#."
     };
 
-    private static void star(DrawContext c, int x, int y, int color) {
-        // rounded five point star: polygon + round tips + a round middle, with a dark shadow
-        for (int pass = 0; pass < 2; pass++) {
-            float cx = x + 7 + (pass == 0 ? 1 : 0), cy = y + 7.6f + (pass == 0 ? 1 : 0);
-            int col = pass == 0 ? 0xFF000000 : color;
-            float R = 8f, r = 4.6f;
-            float[] px = new float[10], py = new float[10];
-            for (int i = 0; i < 10; i++) {
-                double ang = -Math.PI / 2 + i * Math.PI / 5;
-                float rad = (i % 2 == 0) ? R : r;
-                px[i] = cx + (float) Math.cos(ang) * rad;
-                py[i] = cy + (float) Math.sin(ang) * rad;
-            }
-            for (int row = (int) Math.floor(cy - R); row <= (int) Math.ceil(cy + R); row++) {
-                float yy = row + 0.5f;
-                float[] xs = new float[10];
-                int n = 0;
-                for (int i = 0; i < 10; i++) {
-                    int j = (i + 1) % 10;
-                    if ((py[i] <= yy && py[j] > yy) || (py[j] <= yy && py[i] > yy)) {
-                        xs[n++] = px[i] + (yy - py[i]) * (px[j] - px[i]) / (py[j] - py[i]);
-                    }
-                }
-                java.util.Arrays.sort(xs, 0, n);
-                for (int k = 0; k + 1 < n; k += 2) {
-                    c.fill(Math.round(xs[k]), row, Math.round(xs[k + 1]), row + 1, col);
-                }
-            }
-            for (int i = 0; i < 10; i += 2) disc(c, px[i] + (px[i] < cx ? 0.6f : px[i] > cx ? -0.6f : 0f),
-                py[i] + (i == 0 ? 0.8f : 0f), 1.4f, col);
-            disc(c, cx, cy, 3.6f, col);
+    /** Fills a five point star polygon (centre cx, cy in the current matrix units). */
+    private static void starPoly(DrawContext c, float cx, float cy, float R, float r, int col) {
+        float[] px = new float[10], py = new float[10];
+        for (int i = 0; i < 10; i++) {
+            double ang = -Math.PI / 2 + i * Math.PI / 5;
+            float rad = (i % 2 == 0) ? R : r;
+            px[i] = cx + (float) Math.cos(ang) * rad;
+            py[i] = cy + (float) Math.sin(ang) * rad;
         }
+        for (int row = (int) Math.floor(cy - R); row <= (int) Math.ceil(cy + R); row++) {
+            float yy = row + 0.5f;
+            float[] xs = new float[10];
+            int n = 0;
+            for (int i = 0; i < 10; i++) {
+                int j = (i + 1) % 10;
+                if ((py[i] <= yy && py[j] > yy) || (py[j] <= yy && py[i] > yy)) {
+                    xs[n++] = px[i] + (yy - py[i]) * (px[j] - px[i]) / (py[j] - py[i]);
+                }
+            }
+            java.util.Arrays.sort(xs, 0, n);
+            for (int q = 0; q + 1 < n; q += 2) c.fill(Math.round(xs[q]), row, Math.round(xs[q + 1]), row + 1, col);
+        }
+    }
+
+    /** A plain star: an outline when it is not a favourite, filled when it is. bg is the colour behind it. */
+    private static void star(DrawContext c, int x, int y, int color, int bg, boolean filled) {
+        float k = Smooth.scale(c);
+        boolean soft = k > 1.01f;
+        c.getMatrices().push();
+        c.getMatrices().translate(x, y, 0f);
+        c.getMatrices().scale(1f / k, 1f / k, 1f);
+        float cx = 7.5f * k, cy = 8f * k;
+        starPoly(c, cx, cy, 8f * k, 4.2f * k, color);
+        for (int i = 0; i < 10; i += 2) {
+            double ang = -Math.PI / 2 + i * Math.PI / 5;
+            Smooth.discRaw(c, cx + (float) Math.cos(ang) * 7.2f * k, cy + (float) Math.sin(ang) * 7.2f * k, 1.0f * k, color, soft);
+        }
+        if (!filled) starPoly(c, cx, cy + 0.3f * k, 5.0f * k, 2.5f * k, bg);
+        c.getMatrices().pop();
     }
 
     private static String keyName(int code) {
@@ -947,7 +957,7 @@ public class PharaohScreen extends Screen {
         c.enableScissor(x0 - 2, top, x0 + cw + 2, bottom);
         for (Module m : mods) {
             float oa = springAnim(openAnim, m, m.open ? 1f : 0f, 14f);
-            int h = CARD + Math.round((m.settings.size() * ROW + 8) * oa);
+            int h = CARD + Math.round((rowsH(m) + 8) * oa);
             boolean wide = m.open || oa > 0.02f;
             int tx, tw;
             if (wide) {
@@ -1058,11 +1068,12 @@ public class PharaohScreen extends Screen {
 
         // + (settings), star, switch
         if (!m.settings.isEmpty()) {
-            plusButton(c, x + w - 104, y + 15, oa);
+            boolean hovArrow = mx >= x + w - 108 && mx < x + w - 82 && my >= y + 8 && my < y + 40 && my >= top && my < bottom;
+            chevron(c, x + w - 95, y + 24, oa, hovArrow ? TEXT : DIM);
             addHit(1, m, null, x + w - 108, y + 8, 26, 32, top, bottom);
         }
         boolean fav = isFavorite(m);
-        star(c, x + w - 74, y + 16, fav ? 0xFFFFC21A : 0xFFC9BC94);
+        star(c, x + w - 74, y + 16, fav ? 0xFFFFC21A : 0xFFC9BC94, mix(0xFF1D180E, 0xFF14110B, hvT), fav);
         addHit(2, m, null, x + w - 78, y + 8, 24, 32, top, bottom);
         pill(c, x + w - 46, y + 15, swT, col);
         addHit(0, m, null, x + w - 50, y + 8, 42, 32, top, bottom);
@@ -1073,8 +1084,9 @@ public class PharaohScreen extends Screen {
             int sy = y + CARD;
             c.fill(x + 10, sy - 1, x + w - 10, sy, alpha(col, 0x55));
             for (Setting s : m.settings) {
-                boolean sh = mx >= x && mx < x + w && my >= sy && my < sy + ROW && my >= top && my < bottom;
-                if (sh) round(c, x + 4, sy, x + w - 4, sy + ROW, 0x22FFFFFF, 4);
+                int rh = rowH(s);
+                boolean sh = mx >= x && mx < x + w && my >= sy && my < sy + rh && my >= top && my < bottom;
+                if (sh) round(c, x + 4, sy, x + w - 4, sy + rh, 0x22FFFFFF, 4);
                 int lx = x + 14;
                 if (s.swatch != null) {
                     int[] sc = s.swatch.get();
@@ -1103,9 +1115,9 @@ public class PharaohScreen extends Screen {
                 } else if (s.slider) {
                     String value = s.iget.getAsInt() + s.suffix;
                     int vw = uw(value);
-                    c.drawTextWithShadow(this.textRenderer, ui(trim(s.label, w - vw - 40)), lx, sy + 2, TEXT);
-                    c.drawTextWithShadow(this.textRenderer, ui(value), x + w - vw - 12, sy + 2, bright);
-                    int tx1 = x + 14, tx2 = x + w - 14, ty = sy + ROW - 5;
+                    c.drawTextWithShadow(this.textRenderer, ui(trim(s.label, w - vw - 40)), lx, sy + 4, TEXT);
+                    c.drawTextWithShadow(this.textRenderer, ui(value), x + w - vw - 12, sy + 4, bright);
+                    int tx1 = x + 14, tx2 = x + w - 14, ty = sy + rh - 8;
                     round(c, tx1, ty, tx2, ty + 3, 0xFF2E2718, 1);
                     float ratio = (s.iget.getAsInt() - s.min) / (float) (s.max - s.min);
                     float shownRatio = anim(slAnim, s, ratio, 26f);
@@ -1120,8 +1132,8 @@ public class PharaohScreen extends Screen {
                     int kx = Math.round(x + w - 34 + 12 * stT);
                     round(c, kx, sy + 6, kx + 6, sy + 12, 0xFFFFFFFF, 3);
                 }
-                if (oa > 0.98f) addHit(4, m, s, x, sy, w, ROW, top, bottom);
-                sy += ROW;
+                if (oa > 0.98f) addHit(4, m, s, x, sy, w, rh, top, bottom);
+                sy += rh;
             }
             c.disableScissor();
         }
