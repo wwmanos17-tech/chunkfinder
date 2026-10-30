@@ -142,9 +142,16 @@ public class ClusterEsp {
             int[] cnt = new int[12];
             double x1 = 1e18, y1 = 1e18, z1 = 1e18, x2 = -1e18, y2 = -1e18, z2 = -1e18;
             double sx = 0, sz = 0;
+            // Chunk-centre clues contribute to the score, but must not enlarge the ESP box
+            // to an entire 16x16 chunk. Bounds and centre use exact block/entity clues only.
+            List<Pt> real = new ArrayList<>();
             for (Pt p : g) {
                 score += p.w();
                 cnt[p.type()]++;
+                if (p.type() != 8) real.add(p);
+            }
+            List<Pt> bounds = real.isEmpty() ? g : real;
+            for (Pt p : bounds) {
                 x1 = Math.min(x1, p.x()); x2 = Math.max(x2, p.x());
                 y1 = Math.min(y1, p.y()); y2 = Math.max(y2, p.y());
                 z1 = Math.min(z1, p.z()); z2 = Math.max(z2, p.z());
@@ -200,9 +207,9 @@ public class ClusterEsp {
             }
 
             double pad = 3.0;
-            double cx = sx / g.size(), cz = sz / g.size();
-            List<Pt> real = new ArrayList<>();
-            for (Pt p : g) if (p.type() != 8) real.add(p);   // flagged chunks are chunk centres, not blocks
+            double cx = sx / bounds.size(), cz = sz / bounds.size();
+            // Keep the parts list limited to exact evidence positions; flagged chunk markers
+            // are useful for scoring but are not individual blocks to draw.
             int np = Math.min(real.size(), 80);
             double[] pp = new double[np * 4];
             for (int i = 0; i < np; i++) {
