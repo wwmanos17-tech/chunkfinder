@@ -1,0 +1,18 @@
+{
+  "required": false,
+  "package": "com.chunkfinder.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "client": [
+    "CameraMixin",
+    "HandledScreenAccessor",
+    "ClientPlayNetworkHandlerMixin",
+    "MouseMixin",
+    "TextVisitFactoryMixin",
+    "TextRendererMixin",
+    "ScreenCoverMixin",
+    "HeldItemRendererMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 0
+  }
+}
