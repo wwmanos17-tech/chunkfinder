@@ -1,0 +1,192 @@
+package com.chunkfinder;
+
+import net.fabricmc.api.ClientModInitializer;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
+import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.option.KeyBinding;
+import net.minecraft.client.util.InputUtil;
+import net.minecraft.client.world.ClientWorld;
+import net.minecraft.text.Text;
+import org.lwjgl.glfw.GLFW;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class ChunkFinderClient implements ClientModInitializer {
+    public static final Logger LOGGER = LoggerFactory.getLogger("pharaoh");
+
+    private static KeyBinding toggleKey;
+    private static KeyBinding menuKey;
+    private static KeyBinding freecamKey;
+    private static KeyBinding stopwatchKey;
+    private static KeyBinding stopwatchResetKey;
+    private static KeyBinding portalSaveKey;
+    private static KeyBinding portalDeleteKey;
+    private static KeyBinding huntGoKey;
+    private static final KeyBinding[] cmdKeys = new KeyBinding[3];
+    private static ClientWorld lastWorld = null;
+
+    public static KeyBinding menuKey() { return menuKey; }
+    public static KeyBinding toggleKey() { return toggleKey; }
+    public static KeyBinding freecamKey() { return freecamKey; }
+    public static KeyBinding stopwatchKey() { return stopwatchKey; }
+    public static KeyBinding stopwatchResetKey() { return stopwatchResetKey; }
+    public static KeyBinding portalSaveKey() { return portalSaveKey; }
+    public static KeyBinding portalDeleteKey() { return portalDeleteKey; }
+    public static KeyBinding huntGoKey() { return huntGoKey; }
+    public static KeyBinding cmdKey(int i) { return cmdKeys[i]; }
+
+    /** Gives a tool a new key, the same as changing it in Options > Controls. */
+    public static void rebind(KeyBinding kb, int glfwKey) {
+        if (kb == null) return;
+        kb.setBoundKey(InputUtil.fromKeyCode(glfwKey, 0));
+        KeyBinding.updateKeysByCode();
+        MinecraftClient.getInstance().options.write();
+    }
+
+    /** Forget everything every tool has found, so the next scan starts fresh. */
+    public static void clearAll() {
+        ChunkScanner.clear();
+        SusScanner.clear();
+        ClusterEsp.clear();
+        ItemEsp.clear();
+        EntityEsp.clear();
+        PlayerLog.clear();
+        SessionTimer.clear();
+        ActivityScanner.clear();
+        SoundRadar.clear();
+        LightFinder.clear();
+        ChestEsp.clear();
+        OreEsp.clear();
+        SpectatorAlert.clear();
+        StaffTracker.clear();
+    }
+
+    @Override
+    public void onInitializeClient() {
+        ChunkFinderConfig.load();
+        PharaohScreen.ensureBuilt();
+
+        toggleKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
+            "key.chunkfinder.toggle", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_J, "key.categories.chunkfinder"));
+        menuKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
+            "key.chunkfinder.settings", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_K, "key.categories.chunkfinder"));
+        freecamKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
+            "key.chunkfinder.freecam", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_F4, "key.categories.chunkfinder"));
+
+        stopwatchKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
+            "key.chunkfinder.stopwatch", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_UNKNOWN, "key.categories.chunkfinder"));
+        stopwatchResetKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
+            "key.chunkfinder.stopwatch_reset", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_UNKNOWN, "key.categories.chunkfinder"));
+
+        portalSaveKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
+            "key.chunkfinder.portal_save", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_UNKNOWN, "key.categories.chunkfinder"));
+        portalDeleteKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
+            "key.chunkfinder.portal_delete", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_UNKNOWN, "key.categories.chunkfinder"));
+
+        huntGoKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
+            "key.chunkfinder.hunt_go", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_UNKNOWN, "key.categories.chunkfinder"));
+
+        for (int i = 0; i < 3; i++) {
+            cmdKeys[i] = KeyBindingHelper.registerKeyBinding(new KeyBinding(
+                "key.chunkfinder.cmd_" + (i + 1), InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_UNKNOWN, "key.categories.chunkfinder"));
+        }
+
+        // Freecam reads the keyboard and releases the real movement keys before the player's own tick.
+        ClientTickEvents.START_CLIENT_TICK.register(Freecam::tick);
+
+        ClientTickEvents.END_CLIENT_TICK.register(mc -> {
+            while (stopwatchKey.wasPressed()) {
+                if (ChunkFinderConfig.INSTANCE.timerEnabled) SessionTimer.toggleStopwatch();
+            }
+            while (stopwatchResetKey.wasPressed()) {
+                if (ChunkFinderConfig.INSTANCE.timerEnabled) SessionTimer.resetStopwatch();
+            }
+            while (portalSaveKey.wasPressed()) {
+                if (ChunkFinderConfig.INSTANCE.portalEnabled) PortalCalc.saveHere(mc);
+            }
+            while (portalDeleteKey.wasPressed()) {
+                if (ChunkFinderConfig.INSTANCE.portalEnabled) PortalCalc.deleteNearest(mc);
+            }
+            for (int ci = 0; ci < 3; ci++) {
+                while (cmdKeys[ci].wasPressed()) CommandKeys.run(mc, ci);
+            }
+            while (huntGoKey.wasPressed()) {
+                if (ChunkFinderConfig.INSTANCE.huntEnabled) RtpHunter.goToBest(mc);
+            }
+            while (freecamKey.wasPressed()) {
+                ChunkFinderConfig cfg = ChunkFinderConfig.INSTANCE;
+                if (cfg.freecamEnabled) {
+                    Freecam.toggle(mc);
+                } else if (mc.player != null) {
+                    mc.player.sendMessage(Text.literal("Freecam is switched off in the Pharaoh menu"), true);
+                }
+            }
+            if (!ChunkFinderConfig.INSTANCE.freecamEnabled && Freecam.isActive()) {
+                Freecam.toggle(mc);
+            }
+
+            while (toggleKey.wasPressed()) {
+                ChunkFinderConfig cfg = ChunkFinderConfig.INSTANCE;
+                cfg.enabled = !cfg.enabled;
+                ChunkScanner.clear();
+                SusScanner.clear();
+        ClusterEsp.clear();
+                ChunkFinderConfig.save();
+                if (mc.player != null) {
+                    mc.player.sendMessage(Text.literal("Chunk Finder: " + (cfg.enabled ? "ON" : "OFF")), true);
+                }
+            }
+            while (menuKey.wasPressed()) {
+                if (mc.currentScreen == null) {
+                    mc.setScreen(new PharaohScreen(null));
+                }
+            }
+
+            // new world or dimension: start fresh
+            if (mc.world != lastWorld) {
+                lastWorld = mc.world;
+                clearAll();
+            }
+
+            PharaohScreen.pollKeys(mc);
+            tickTools(mc);
+        });
+
+        WorldRenderEvents.AFTER_TRANSLUCENT.register(EspRenderer::render);
+        PharaohHud.register();
+        MarketHelper.register();
+        PortalCalc.registerCommands();
+        net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientChunkEvents.CHUNK_LOAD.register((world, chunk) -> {
+            try { NewChunks.onChunkLoad(chunk); } catch (Throwable ignored) { }
+        });
+        CommandKeys.registerCommands();
+    }
+
+    private static void safe(String name, Runnable r) {
+        try {
+            r.run();
+        } catch (Throwable t) {
+            LOGGER.error("Pharaoh tool failed this tick: " + name, t);
+        }
+    }
+
+    /** Each tool runs on its own, so one failing tool can never stop the others (like Chest ESP). */
+    private static void tickTools(MinecraftClient mc) {
+        safe("ChestEsp", () -> ChestEsp.tick(mc));
+        safe("ChunkScanner", () -> ChunkScanner.tick(mc));
+        safe("SusScanner", () -> SusScanner.tick(mc));
+        safe("ClusterEsp", () -> ClusterEsp.tick(mc));
+        safe("PlayerLog", () -> PlayerLog.tick(mc));
+        safe("ActivityScanner", () -> ActivityScanner.tick(mc));
+        safe("PortalCalc", () -> PortalCalc.tick(mc));
+        safe("RtpHunter", () -> RtpHunter.tick(mc));
+        safe("Profiles", () -> Profiles.tick(mc));
+        safe("NewChunks", () -> NewChunks.tick(mc));
+        safe("LightFinder", () -> LightFinder.tick(mc));
+        safe("OreEsp", () -> OreEsp.tick(mc));
+        safe("SpectatorAlert", () -> SpectatorAlert.tick(mc));
+        safe("StaffTracker", () -> StaffTracker.tick(mc));
+    }
+}
